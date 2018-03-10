@@ -11,6 +11,8 @@
     integer, parameter :: Tretire =40
     integer, parameter :: normBnd = 4
     integer, parameter :: dimEstimation = 3
+    integer, parameter :: spouseretire = 45
+    integer, parameter :: stopwrok = 60
 
     !Holds the structural parameters that will eventually be estimated (at least in some cases)
     type structparamstype

@@ -137,7 +137,7 @@
         P(4,3) = 0.5
         y(4) = gmm_criteria(p(3,:))
         call amoeba(p,y,0.002_8,gmm_criteria,iter)
-        print '("P = ",f6.3)',P
+        print '("P = ",f6.3)',P(1,:)
         print '("Y = ",f16.3)',Y
         !params%nu =
         if (params%system == 1 ) then !ifort
@@ -145,9 +145,12 @@
             open (unit=201, file='..\\out\params.txt', status='unknown',recl=requiredl, action='write')
             write (201, * ) P(1,:)
         else !Gfort
-            inquire (iolength=requiredl)  P(1,:)
+            inquire (iolength=requiredl)  P
             open (unit=201, file='./out/params.txt', status='unknown',recl=requiredl, action='write')
-            write (201, * ) P(1,:)
+            !write (201, * ) P(1,:)
+            write (201, * ) P(1,1)
+            write (201, * ) P(1,2)
+            write (201, * ) P(1,3)
         end if
         print '("Generating files")'
         call solveValueFunction( params, grids, policyA1, policyC, policyL, V, EV, EdU, .FALSE. )
