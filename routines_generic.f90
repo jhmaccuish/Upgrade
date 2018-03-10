@@ -1882,6 +1882,7 @@
     iter=0
     psum(:)=sum(p(:,:),dim=1)
     do
+        print '("Relative tolerance",f6.3)',rtol
         ilo=iminloc(y(:))
         ihi=imaxloc(y(:))
         ytmp=y(ihi)

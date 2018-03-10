@@ -2,14 +2,15 @@
 
     integer, parameter :: rk = selected_real_kind(15)
 
-    integer, parameter :: numPointsA = 20
+    integer, parameter :: numPointsA = 20 !45
     integer, parameter :: numPointsY = 20
-    integer, parameter :: numAIME = 5
+    integer, parameter :: numAIME = 5 !5
     integer, parameter :: numPointsL = 2
     integer, parameter :: numSims = 10000 !10000
     integer, parameter :: Tperiods = 75
-    integer, parameter :: Tretire =41
+    integer, parameter :: Tretire =40
     integer, parameter :: normBnd = 4
+    integer, parameter :: dimEstimation = 3
 
     !Holds the structural parameters that will eventually be estimated (at least in some cases)
     type structparamstype

@@ -157,7 +157,7 @@
     !local
     integer :: ixt, ixAIME, ixA, ixY, ixL
     real (kind=rk) :: negV, A, Y, lbA1, ubA1, AIME, EV1(numPointsA ,numAIME) ! Agrid1(numPointsA)
-    real (kind=rk) :: AIME1grid(numAIME), policyA1temp, negVtemp, realisedV(numPointsA)
+    real (kind=rk) :: AIME1grid(numAIME), policyA1temp, negVtemp, realisedV(numPointsY)
 
     !Test
     real (kind=rk) :: testC
@@ -346,7 +346,7 @@
     ! ---------------------------------------------------------------------------------------------------------!
     ! ---------------------------------------------------------------------------------------------------------!
     !!Simulation Subroutine
-    subroutine simWithUncer(params, grids, policyA1,policyL,EV,  y, c, a, v, l )
+    subroutine simWithUncer(params, grids, policyA1,policyL,EV,  y, c, a, v, l, yemp )
     implicit none
 
     !inputs
@@ -359,6 +359,7 @@
 
     !outputs
     real (kind=rk), intent(out) :: y(Tperiods, numSims) !income
+    real (kind=rk), intent(out) :: yemp(Tperiods, numSims)
     real (kind=rk), intent(out) :: c(Tperiods, numSims)  !consumption
     integer, intent(out) :: l(Tperiods, numSims) !labour supply
     real (kind=rk), intent(out) :: v(Tperiods, numSims)  !value
@@ -428,6 +429,7 @@
             idxA=minloc(abs(a(t, s)-grids%Agrid(t,:)))
             idxAIME=minloc(abs(AIME(t, s)-grids%AIMEgrid(t,:)))
             l(t,s)=policyL(t,idxA(1),idxY(1),idxAIME(1))
+            yemp(t,s) = y(t, s)
             if (l(t,s) .EQ. 0) then
                 y(t, s)=grids%benefit(t)
                 AIME(t+1, s) =   AIME(t, s) * (t-1)/t
@@ -463,7 +465,7 @@
             c(t, s) = a(t, s)  + y(t, s) - (a(t+1, s)/(1+params%r))
         end do   !t
     end do! s
-
+    yemp = yemp*l
 
 
     end subroutine
@@ -567,7 +569,7 @@
     !inputs
     type (structparamstype), intent(in) :: params
     type (gridsType), intent(in) :: grids
-    real (kind=rk), intent(in) :: target(:)
+    real (kind=rk), intent(in) :: target(:,:)
     !output
     real (kind=rk) :: gmm
     !local
@@ -582,22 +584,28 @@
     integer :: lpath(Tperiods, numSims) !labour supply
     real (kind=rk) :: vpath(Tperiods, numSims)  !value
     real (kind=rk) :: apath(Tperiods + 1,numSims) !this is the path at the start of each period, so we include the 'start' of death
-    real (kind=rk) ::  meanL(Tperiods)
+    real (kind=rk) ::  meanL(Tperiods), meanA(Tperiods)
+    real (kind=rk) :: yemp(Tperiods, numSims)
     integer :: n
 
     !solve
     call solveValueFunction( params, grids, policyA1, policyC, policyL, V, EV, EdU, .FALSE. )
     !simulate
-    call simWithUncer(params, grids, policyA1,policyL,EV, ypath, cpath, apath, vpath, lpath )
+    call simWithUncer(params, grids, policyA1,policyL,EV, ypath, cpath, apath, vpath, lpath, yemp )
     do n=1,Tperiods
         meanL(n)=sum(real(lpath(n,:),rk))/real(numSims,rk) !size(lpath(n,:))
+        meanA(n)=sum(real(Apath(n,:),rk))/real(numSims,rk) !size(lpath(n,:))
     end do
 
-    gmm = dot_product(abs(meanL(32:32+23)-target),abs(meanL(32:32+23)-target));
-
+    gmm = dot_product(abs(meanL(32:32+23)-target(1,:)),abs(meanL(32:32+23)-target(1,:))) + &
+          dot_product(abs(meanA(32:32+23)-target(2,:)),abs(meanA(32:32+23)-target(2,:)))
+    
     end function
+    ! ---------------------------------------------------------------------------------------------------------!
+    ! ---------------------------------------------------------------------------------------------------------!
+    !!Write to file
 
-    subroutine writetofile(params, ypath, cpath, apath, vpath, lpath)
+    subroutine writetofile(params, ypath, cpath, apath, vpath, lpath, yemp)
     implicit none
     !inputs
     type (structparamstype), intent(in) :: params
@@ -606,10 +614,11 @@
     integer, intent(in) :: lpath(Tperiods, numSims) !labour supply
     real (kind=rk), intent(in) :: vpath(Tperiods, numSims)  !value
     real (kind=rk), intent(in) :: apath(Tperiods + 1,numSims) !this is the path at the start of each period, so we include the 'start' of death
+    real (kind=rk), intent(in)  :: yemp(Tperiods, numSims)
 
     !local
     integer :: n, requiredl 
-    real(kind=rk) :: meanL(Tperiods), meanV(Tperiods), meanA(Tperiods), meanC(Tperiods), meanY(Tperiods)
+    real(kind=rk) :: meanL(Tperiods), meanV(Tperiods), meanA(Tperiods), meanC(Tperiods), meanY(Tperiods), meanYemp(Tperiods)
     
     if (params%system == 1 ) then !ifort
         do n=1,Tperiods
@@ -622,6 +631,8 @@
             meanC(n)=sum(real(cpath(n,:),rk))/real(numSims,rk)
             !write (204, * ) meanC(n)
             meanY(n)=sum(real(ypath(n,:),rk))/real(numSims,rk)
+            !write (205, * ) meanY(n)
+            meanYemp(n)=sum(real(yemp(n,:),rk))/real(numSims,rk)
             !write (205, * ) meanY(n)
         end do
         !L
@@ -670,6 +681,10 @@
         inquire (iolength=requiredl)  meany
         open (unit=205, file='./out/Ypath', status='unknown',recl=requiredl, action='write')
         write (205, * ) 'Header'
+
+        inquire (iolength=requiredl)  meanYemp
+        open (unit=206, file='./out/YempPath', status='unknown',recl=requiredl, action='write')
+        write (206, * ) 'Header'
     
         do n=1,Tperiods
             meanL(n)=sum(real(lpath(n,:),rk))/real(numSims,rk) !size(lpath(n,:))
@@ -682,13 +697,15 @@
             write (204, * ) meanC(n)
             meanY(n)=sum(real(ypath(n,:),rk))/real(numSims,rk)
             write (205, * ) meanY(n)
+            meanYemp(n)=sum(real(yemp(n,:),rk))/real(meanL(n)*numSims,rk)
+            write (206, * ) meanYemp(n)
          end do
         close( unit=201)
         close( unit=202)
         close( unit=203)
         close( unit=204)
         close( unit=205)
-        
+        close( unit=206)
     end if
 
     end subroutine
