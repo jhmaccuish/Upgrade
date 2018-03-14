@@ -9,11 +9,12 @@
     ! ---------------------------------------------------------------------------------------------------------!
     ! ---------------------------------------------------------------------------------------------------------!
     !!Get Income grid
-    subroutine getIncomeGrid(params, Ygrid, incTransitionMrx, minInc, maxInc, AIMEgrid, benefit)
+    subroutine getIncomeGrid(params, Ygrid, incTransitionMrx, minInc, maxInc, AIMEgrid, benefit, fc)
     implicit none
 
     !inputs
     type (structparamstype), intent(inout) :: params
+    real (kind=rk):: fc(:)
 
     !outputs
     real (kind=rk) :: Ygrid(:,:), incTransitionMrx(:,:), minInc(:), maxInc(:), AIMEgrid(:,:), benefit(:)
@@ -34,11 +35,11 @@
     params%pension = 107.45*52
     upper(1) = 0
     do t=1 , Tperiods
-        Ygrid(t,:)= exp(ly+params%delta(1)*t**2+params%delta(2)*t+params%delta(3))
-        minInc(t) = exp((-normBnd * sig_inc)+params%delta(1)*t**2+params%delta(2)*t+params%delta(3))
-        maxInc(t) = exp((normBnd * sig_inc)+params%delta(1)*t**2+params%delta(2)*t+params%delta(3))
+        Ygrid(t,:)= exp(ly+params%delta(1)*t**2+params%delta(2)*t+params%delta(3)-fc(t))
+        minInc(t) = exp((-normBnd * sig_inc)+params%delta(1)*t**2+params%delta(2)*t+params%delta(3)-fc(t))
+        maxInc(t) = exp((normBnd * sig_inc)+params%delta(1)*t**2+params%delta(2)*t+params%delta(3)-fc(t))
         upper(t+1) = upper(t) + maxInc(t)
-        if (t <=45) then
+        if (t <=spouseretire) then
             a = (upper(t+1)/t)/(numAIME-1)
             AIMEgrid(t,:) = a*(/(i,i=0,numAIME-1)/) !linspace(0,upper(t+1)/t,numAIME);
         else
@@ -171,51 +172,97 @@
         AIME1grid = grids%AIMEgrid(ixt + 1, :);
         do ixAIME = 1, numAIME
             do ixA = 1, numPointsA                   ! points on asset grid
-                !Although doesn't recieve income still need to loop around
-                !hypothetical income because participation doesn't effect
-                !earning potential
-                ! STEP 1. solve problem at grid points in assets, income + labour choices
-                ! ---------------------------------------------------------
-                do ixY = 1, numPointsY               ! points on income grid
-                    negV = -huge(negv) !-log(0.0) !inf
-                    do ixL = 0,(numPointsL-1),1           ! points of income choice
-                        ! Value of income and information for optimisation
-                        A    = grids%Agrid(ixt, ixA);            ! assets today
-                        Y    = ixL*grids%Ygrid(ixt, ixY)+ (1-ixL)*grids%benefit(ixt);
-                        !if (ixL==1 .AND.  ixt < 65) then
-                        !    AIME =  grids%Ygrid(ixt, ixY)/ixt + AIME * (ixt-1)/ixt;
-                        !elseif (ixt >= 65) then
-                        AIME = grids%AIMEgrid(ixt,ixAIME);
-                        !end if
-                        !AIME only depends on earned income so add spousal
-                        !and pensions after calculating it
-                        call gross2net(params,Y,ixt,ixl,AIME)
+                if (ixt < stopwrok) then
+                    !Although doesn't recieve income still need to loop around
+                    !hypothetical income because participation doesn't effect
+                    !earning potential
+                    ! STEP 1. solve problem at grid points in assets, income + labour choices
+                    ! ---------------------------------------------------------
+                    do ixY = 1, numPointsY               ! points on income grid
+                        !negV = -huge(negv) !-log(0.0) !inf
                         lbA1 = grids%Agrid(ixt + 1, 1);          ! lower bound: assets tomorrow
-                        ubA1 = (A + Y - params%minCons)*(1+params%r);    ! upper bound: assets tomorrow
                         EV1  = EV(ixt + 1,:, ixY,:);  ! relevant section of EV matrix (in assets tomorrow)
-
-                        ! Compute solution
-                        if (ubA1 - lbA1 < params%minCons) then         ! if liquidity constrained
-                            negVtemp = objectivefunc(params, grids,lbA1, A, Y,ixL,ixt, AIME,EV1);
-                            policyA1temp = lbA1;
-                        else                               ! if interior solution
-                            ![policyA1temp, negVtemp] = ...
-                            !    fminbnd(@(A1) objectivefunc(A1, A, Y,ixL,ixt, AIME), lbA1, ubA1, optimset('TolX',tol));
-                            negVtemp = golden_generic(lbA1, ubA1, policyA1temp, func,params%tol,.FALSE.)
-                        end if! if (ubA1 - lbA1 < minCons)
-                        if (negVtemp > negV) then
-                            negV = negVtemp;
-                            policyA1(ixt,ixA,ixY,ixAIME)=policyA1temp;
-                            policyL(ixt,ixA,ixY,ixAIME)=ixL;
-                            ! Store solution and its value
-                            policyC(ixt, ixA, ixY,ixAIME) = A + Y - policyA1(ixt, ixA, ixY,ixAIME)/(1+params%r);
-                        end if
+                        call solvePeriod(params, grids, grids%Ygrid(ixt, ixY),grids%Agrid(ixt, ixA), grids%AIMEgrid(ixt,ixAIME), &
+                                ixt, lbA1, EV1, grids%benefit(ixt), policyA1(ixt,ixA,ixY,ixAIME), &
+                                policyC(ixt, ixA, ixY,ixAIME), policyL(ixt,ixA,ixY,ixAIME), V(ixt, ixA, ixY,ixAIME))
+!                        do ixL = 0,(numPointsL-1),1           ! points of income choice
+!                            ! Value of income and information for optimisation
+!                            A    = grids%Agrid(ixt, ixA);            ! assets today
+!                            Y    = ixL*grids%Ygrid(ixt, ixY)+ (1-ixL)*grids%benefit(ixt);
+!                            AIME = grids%AIMEgrid(ixt,ixAIME);
+!                            !end if
+!                            !AIME only depends on earned income so add spousal
+!                            !and pensions after calculating it
+!                            call gross2net(params,Y,ixt,ixl,AIME)
+!                            ! Next peridos AIME
+!                            if (ixL==1 .AND.  ixt < spouseretire) then
+!                                    AIME =  grids%Ygrid(ixt, ixY)/ixt + AIME * (ixt-1)/ixt
+!                            else if ((ixL==0 .AND.  ixt < spouseretire)) then
+!                                    AIME = AIME * (ixt-1)/ixt
+!                            end if
+!
+!
+!                            ubA1 = (A + Y - params%minCons)*(1+params%r);    ! upper bound: assets tomorrow
+!
+!
+!                            ! Compute solution
+!                            if (ubA1 - lbA1 < params%minCons) then         ! if liquidity constrained
+!                                negVtemp = objectivefunc(params, grids,lbA1, A, Y,ixL,ixt, AIME,EV1);
+!                                policyA1temp = lbA1;
+!                            else                               ! if interior solution
+!                                ![policyA1temp, negVtemp] = ...
+!                                !    fminbnd(@(A1) objectivefunc(A1, A, Y,ixL,ixt, AIME), lbA1, ubA1, optimset('TolX',tol));
+!                                negVtemp = golden_generic(lbA1, ubA1, policyA1temp, func,params%tol,.FALSE.)
+!                            end if! if (ubA1 - lbA1 < minCons)
+!                            if (negVtemp > negV) then
+!                                negV = negVtemp;
+!                                policyA1(ixt,ixA,ixY,ixAIME)=policyA1temp;
+!                                policyL(ixt,ixA,ixY,ixAIME)=ixL;
+!                                ! Store solution and its value
+!                                policyC(ixt, ixA, ixY,ixAIME) = A + Y - policyA1(ixt, ixA, ixY,ixAIME)/(1+params%r);
+!                            end if
+!                        end do
+!                        !end
+!                        testC = policyC(ixt, ixA, ixY,ixAIME)
+!                        V(ixt, ixA, ixY,ixAIME)       = negV;
+                        !dU(ixt, ixA, ixY)      = getmargutility(policyC(ixt, ixA, ixY),policyL(ixt,ixA,ixY));
                     end do
+                else
+                    negV = -huge(negv) !-log(0.0) !inf
+                    ixL = 0
+                    ! Value of income and information for optimisation
+                    A    = grids%Agrid(ixt, ixA)            ! assets today
+                    Y    = grids%benefit(ixt)
+                    AIME = grids%AIMEgrid(ixt,ixAIME);
+                    call gross2net(params,Y,ixt,ixl,AIME)
+                    if (y < 0) then
+                        print *, 'Error Y< 0'
+                    end if
+
+                    lbA1 = grids%Agrid(ixt + 1, 1);          ! lower bound: assets tomorrow
+                    ubA1 = (A + Y - params%minCons)*(1+params%r);    ! upper bound: assets tomorrow
+                    EV1  = EV(ixt + 1,:, 1,:);  ! relevant section of EV matrix (in assets tomorrow)
+                    ! Compute solution
+                    if (ubA1 - lbA1 < params%minCons) then         ! if liquidity constrained
+                        negVtemp = objectivefunc(params, grids,lbA1, A, Y,ixL,ixt, AIME,EV1);
+                        policyA1temp = lbA1;
+                    else                               ! if interior solution
+                        ![policyA1temp, negVtemp] = ...
+                        !    fminbnd(@(A1) objectivefunc(A1, A, Y,ixL,ixt, AIME), lbA1, ubA1, optimset('TolX',tol));
+                        negVtemp = golden_generic(lbA1, ubA1, policyA1temp, func,params%tol,.FALSE.)
+                    end if! if (ubA1 - lbA1 < minCons)
+                    if (negVtemp > negV) then
+                        negV = negVtemp;
+                        policyA1(ixt,ixA,(/(ixY, ixY=1, numPointsY)/),ixAIME)=policyA1temp;
+                        policyL(ixt,ixA,(/(ixY, ixY=1, numPointsY)/),ixAIME)=ixL;
+                        ! Store solution and its value
+                        policyC(ixt, ixA, (/(ixY, ixY=1, numPointsY)/),ixAIME) = A + Y - policyA1(ixt, ixA, 1,ixAIME)/(1+params%r);
+                    end if
                     !end
-                    testC = policyC(ixt, ixA, ixY,ixAIME)
-                    V(ixt, ixA, ixY,ixAIME)       = negV;
+                    testC = policyC(ixt, ixA, 1,ixAIME)
+                    V(ixt, ixA, (/(ixY, ixY=1, numPointsY)/),ixAIME)       = negV;
                     !dU(ixt, ixA, ixY)      = getmargutility(policyC(ixt, ixA, ixY),policyL(ixt,ixA,ixY));
-                end do
+                end if
 
                 ! STEP 2. integrate out income today conditional on income
                 ! yesterday to get EV and EdU
@@ -263,12 +310,13 @@
     !mortal = (/1,2,&
     !        3,4/)
 
-    mortal = (/0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, &
+    mortal = (/0.0, 0.0, 0.0, 0.0, 0.0, &
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, &
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.011071, 0.011907, 0.012807, &
         0.013676, 0.01475, 0.015818, 0.016846, 0.018079, 0.019343, 0.020659, 0.0218, 0.023505, 0.025202, 0.02696, &
         0.028831, 0.031017, 0.033496, 0.036024, 0.038912, 0.042054, 0.045689, 0.049653, 0.054036, 0.05886, 0.064093, &
         0.069636, 0.07533, 0.081069, 0.086912, 0.093067, 0.099807, 0.107483, 0.116125, 0.125196, 0.134361, 0.143881, &
-        0.1542, 0.165675, 0.17842, 0.192363, 1.0/);
+        0.1542, 0.165675, 0.17842, 0.192363, 0.2117, 0.1672,0.1565, 0.1485,0.1459, 1.0/);
 
     !Get tomorrow's consumption (cons), the value of left over assets (VA1) and
     !total value (u(c) + b * VA1
@@ -325,28 +373,31 @@
     ! ---------------------------------------------------------------------------------------------------------!
     ! ---------------------------------------------------------------------------------------------------------!
     !!Defined Benefite Pension function
-    function dbPension(AIME)
+    function dbPension(params,AIME)
     implicit none
     !calibrated to give 25,000 max from 60,000 AIME upwards
     !db2 = level/(point^2-2point), db1 = 6.9447e-06*points
     !point
 
     !inputs
+    type (structparamstype), intent(in) :: params
     real (kind=rk), intent(in) :: AIME
     !outputs
     real (kind=rk) :: dbPension
-
-    if (AIME < 60000) then
-        dbPension = -(6.9447e-06)*AIME**2 + 0.8334*AIME;
+    !local
+    real (kind=rk):: bound
+    bound = -params%db(1) /(2.0*params%db(2))
+    if (AIME < bound) then
+        dbPension = params%db(2)*AIME**2 + params%db(1)*AIME;
     else
-        dbPension = 25000
+        dbPension = params%db(2)*bound**2 + params%db(1)*bound !25000
     endif
     end function
 
     ! ---------------------------------------------------------------------------------------------------------!
     ! ---------------------------------------------------------------------------------------------------------!
     !!Simulation Subroutine
-    subroutine simWithUncer(params, grids, policyA1,policyL,EV,  y, c, a, v, l, yemp )
+    subroutine simWithUncer(params, grids, policyA1,policyL,EV,  y, c, a, v, l, yemp, AIME )
     implicit none
 
     !inputs
@@ -364,23 +415,44 @@
     integer, intent(out) :: l(Tperiods, numSims) !labour supply
     real (kind=rk), intent(out) :: v(Tperiods, numSims)  !value
     real (kind=rk), intent(out) :: a(Tperiods + 1,numSims) !this is the path at the start of each period, so we include the 'start' of death
+    real (kind=rk), intent(out) :: AIME(Tperiods + 1,numSims)
 
-
-    real (kind=rk) :: AIME(Tperiods + 1,numSims)
+    !real (kind=rk) :: AIME(Tperiods + 1,numSims)
 
     !local
-    real (kind=rk) :: startingA, startAIME, sig_inc, sig_initial
+    real (kind=rk) :: startingA(numSims), startAIME, sig_inc, sig_initial
     real (kind=rk) :: e(Tperiods, numSims), temp(numSims, Tperiods)    ! the innovations to log income
     real (kind=rk) :: logy1(1,numSims)        ! draws for initial income
     real (kind=rk) :: ly(Tperiods, numSims)           ! log income
     !real (kind=rk) :: ypathIndex(Tperiods, numSims)   ! holds the index (location) in the vector
     integer :: s, t, seed1, seed2, ios, idxA(1), idxAIME(1), idxY(1)
     !real (kind=rk) :: temp2(numPointsY)
-    CHARACTER(len=255) :: cwd
-    CALL getcwd(cwd)
-    startAIME = 0
-    startingA = 0
+    !CHARACTER(len=255) :: cwd
+    !CALL getcwd(cwd)
 
+    integer :: seedIn
+
+    !local
+    real (kind=rk) ::  uniformRand(numSims), ltemp, lbA1, EV1(numPointsA ,numAIME)
+    INTEGER :: n, i, uniformInt(numSims)
+    INTEGER, DIMENSION(:), ALLOCATABLE :: seed
+
+    seedIn = 16101988
+    !Set seed
+    CALL RANDOM_SEED(size = n)
+    ALLOCATE(seed(n))
+    seed = seedIn * (/ (i - 1, i = 1, n) /)
+    CALL RANDOM_SEED(PUT = seed)
+    DEALLOCATE(seed)
+
+    !!get uniform random number
+    CALL RANDOM_NUMBER(uniformRand)
+
+    do i=1, numsims
+        uniformInt(i) = nint(uniformRand(i)*numPointsA)
+        startingA(i) =grids%Agrid(1,uniformInt(i))
+    end do
+    startAIME = 0
 
     ! Obtain time series of incomes for our simulated individuals
     ! Draw random draws for starting income and for innovations
@@ -412,16 +484,16 @@
     ! Get all the incomes, recursively
     do s = 1, numSims, 1                           ! loop through individuals
         ly(1, s) = truncate(logy1(1, s), -normBnd*sig_inc,normBnd*sig_inc )
-        y(1, s) = exp(ly(1, s)+params%delta(1)+params%delta(2)+params%delta(3))
+        y(1, s) = exp(ly(1, s)+params%delta(1)+params%delta(2)+params%delta(3)-grids%fc(1))
         do t = 1,Tperiods-1,1                              ! loop through time periods for a particular individual
             ly(t+1, s) = (1 -params%rho) * params%mu + params%rho * ly(t, s) + e(t + 1, s)
             ly(t+1, s) = truncate(ly(t+1, s), -normBnd*sig_inc,normBnd*sig_inc )
-            y(t+1, s) = exp( ly(t+1, s) + params%delta(1)*(t+1)**2+params%delta(2)*(t+1)+params%delta(3) )
+            y(t+1, s) = exp( ly(t+1, s) + params%delta(1)*(t+1)**2+params%delta(2)*(t+1)+params%delta(3)-grids%fc(t+1) )
         end do ! t
     end do! s
 
     do s = 1,numSims,1
-        a(1, s) = startingA
+        a(1, s) = startingA(s)
         AIME(1,s)=startAIME
         do t = 1,Tperiods,1                              ! loop through time periods for a particular individual
             !Should improve this nearest neigbhour
@@ -430,6 +502,30 @@
             idxAIME=minloc(abs(AIME(t, s)-grids%AIMEgrid(t,:)))
             l(t,s)=policyL(t,idxA(1),idxY(1),idxAIME(1))
             yemp(t,s) = y(t, s)
+
+            call linearinterp3_withextrap(grids%Agrid(t,:), grids%Ygrid(t, :), grids%AIMEgrid(t,:), &
+                numPointsA, numPointsY, numAIME,  a(t, s), y(t, s),AIME(t, s), ltemp,  real(policyL(t, :, :,:),rk))
+            if (abs(l(t,s) - ltemp) > 0.01) then
+                lbA1 = grids%Agrid(t + 1, 1);          ! lower bound: assets tomorrow
+                ev1 = EV(t + 1,:, idxY(1),:)
+                call solvePeriod(params, grids, y(t, s), a(t, s), AIME(t, s) ,t, lbA1, ev1, &
+                grids%benefit(t),a(t+1, s),c(t, s),l(t,s),v(t  , s))
+            else
+                !a(t+1, s) =  interp2D(Agrid(t,:)', Ygrid(t, :)', tA1, a(t, s), (y(t, s)));
+                !interp3(Agrid(t,:)', Ygrid(t, :)', AIMEgrid(t,:)',tA1, a(t, s), y(t, s),AIME(t, s));
+                call linearinterp3_withextrap(grids%Agrid(t,:), grids%Ygrid(t, :), grids%AIMEgrid(t,:), &
+                    numPointsA, numPointsY, numAIME,  a(t, s), y(t, s),AIME(t, s), a(t+1, s),  policyA1(t, :, :,:))
+                !v(t  , s) =  interp2D(Agrid(t,:)', Ygrid(t, :)', tV , a(t, s), (y(t, s)));
+                !interp3(Agrid(t,:)', Ygrid(t, :)', AIMEgrid(t,:)',tV, a(t, s), y(t, s),AIME(t, s));
+                call linearinterp3_withextrap(grids%Agrid(t,:), grids%Ygrid(t, :), grids%AIMEgrid(t,:),&
+                    numPointsA, numPointsY, numAIME,  a(t, s), y(t, s),AIME(t, s), v(t  , s),  EV(t, :, :,:))
+                                ! Get consumption from today's assets, today's income and
+                ! Check whether next period's asset is below the lowest
+                ! permissable
+                !if ( a(t+1, s) < Agrid(t+1, 1))
+                !   [ a(t+1, s) ] = checkSimExtrap( Agrid(t+1, 1),y(t, s), t );
+                !end
+            end if
             if (l(t,s) .EQ. 0) then
                 y(t, s)=grids%benefit(t)
                 AIME(t+1, s) =   AIME(t, s) * (t-1)/t
@@ -441,31 +537,13 @@
                 end if
             end if
 
-            !a(t+1, s) =  interp2D(Agrid(t,:)', Ygrid(t, :)', tA1, a(t, s), (y(t, s)));
-            !interp3(Agrid(t,:)', Ygrid(t, :)', AIMEgrid(t,:)',tA1, a(t, s), y(t, s),AIME(t, s));
-            call linearinterp3_withextrap(grids%Agrid(t,:), grids%Ygrid(t, :), grids%AIMEgrid(t,:), &
-                numPointsA, numPointsY, numAIME,  a(t, s), y(t, s),AIME(t, s), a(t+1, s),  policyA1(t, :, :,:))
-
-
-            !v(t  , s) =  interp2D(Agrid(t,:)', Ygrid(t, :)', tV , a(t, s), (y(t, s)));
-            !interp3(Agrid(t,:)', Ygrid(t, :)', AIMEgrid(t,:)',tV, a(t, s), y(t, s),AIME(t, s));
-            call linearinterp3_withextrap(grids%Agrid(t,:), grids%Ygrid(t, :), grids%AIMEgrid(t,:),&
-                numPointsA, numPointsY, numAIME,  a(t, s), y(t, s),AIME(t, s), v(t  , s),  EV(t, :, :,:))
-
-            ! Check whether next period's asset is below the lowest
-            ! permissable
-            !if ( a(t+1, s) < Agrid(t+1, 1))
-            !   [ a(t+1, s) ] = checkSimExtrap( Agrid(t+1, 1),y(t, s), t );
-            !end
-
             call gross2net(params,y(t, s),t,l(t,s), AIME(t, s))
-
-            ! Get consumption from today's assets, today's income and
             ! tomorrow's optimal assets
             c(t, s) = a(t, s)  + y(t, s) - (a(t+1, s)/(1+params%r))
+
         end do   !t
     end do! s
-    yemp = yemp*l
+    !yemp = yemp*l
 
 
     end subroutine
@@ -547,16 +625,20 @@
     !changing
     real (kind =rk), intent(inout) :: Y
 
-    Y = Y +params%spouseInc
+    !Y = Y +params%spouseInc
     !Add own and husbands pension
     if (ixt >= Tretire) then
         Y = Y + params%pension
-        if  (ixt >= 45) then
+        if  (ixt >= spouseretire) then
             Y = Y + params%pension
             if (ixL==0) then
-                Y =   Y + dbPension(AIME);
+                Y =   Y + dbPension(params,AIME);
             end if
+        else
+            Y = Y +params%spouseInc
         end if
+    else
+        Y = Y +params%spouseInc
     end if
 
     end subroutine
@@ -568,7 +650,7 @@
     implicit none
     !inputs
     type (structparamstype), intent(in) :: params
-    type (gridsType), intent(in) :: grids
+    type (gridsType), intent(inout) :: grids
     real (kind=rk), intent(in) :: target(:,:)
     !output
     real (kind=rk) :: gmm
@@ -586,12 +668,16 @@
     real (kind=rk) :: apath(Tperiods + 1,numSims) !this is the path at the start of each period, so we include the 'start' of death
     real (kind=rk) ::  meanL(Tperiods), meanA(Tperiods)
     real (kind=rk) :: yemp(Tperiods, numSims)
+    real (kind=rk) :: AIME(Tperiods + 1,numSims)
+    
     integer :: n
 
+    !Set asset grid
+    call getassetgrid( params, grids%maxInc, grids%Agrid)
     !solve
     call solveValueFunction( params, grids, policyA1, policyC, policyL, V, EV, EdU, .FALSE. )
     !simulate
-    call simWithUncer(params, grids, policyA1,policyL,EV, ypath, cpath, apath, vpath, lpath, yemp )
+    call simWithUncer(params, grids, policyA1,policyL,EV, ypath, cpath, apath, vpath, lpath, yemp, AIME )
     do n=1,Tperiods
         meanL(n)=sum(real(lpath(n,:),rk))/real(numSims,rk) !size(lpath(n,:))
         meanA(n)=sum(real(Apath(n,:),rk))/real(numSims,rk) !size(lpath(n,:))
@@ -605,7 +691,7 @@
     ! ---------------------------------------------------------------------------------------------------------!
     !!Write to file
 
-    subroutine writetofile(params, ypath, cpath, apath, vpath, lpath, yemp)
+    subroutine writetofile(params, ypath, cpath, apath, vpath, lpath, yemp, AIME)
     implicit none
     !inputs
     type (structparamstype), intent(in) :: params
@@ -615,10 +701,11 @@
     real (kind=rk), intent(in) :: vpath(Tperiods, numSims)  !value
     real (kind=rk), intent(in) :: apath(Tperiods + 1,numSims) !this is the path at the start of each period, so we include the 'start' of death
     real (kind=rk), intent(in)  :: yemp(Tperiods, numSims)
-
+    real (kind=rk), intent(in)  :: AIME(Tperiods + 1,numSims)
     !local
     integer :: n, requiredl 
-    real(kind=rk) :: meanL(Tperiods), meanV(Tperiods), meanA(Tperiods), meanC(Tperiods), meanY(Tperiods), meanYemp(Tperiods)
+    real(kind=rk) :: meanL(Tperiods), meanV(Tperiods), meanA(Tperiods), meanC(Tperiods), meanY(Tperiods)
+    real(kind=rk) :: meanYemp(Tperiods), meanAIME(Tperiods)
     
     if (params%system == 1 ) then !ifort
         do n=1,Tperiods
@@ -632,8 +719,9 @@
             !write (204, * ) meanC(n)
             meanY(n)=sum(real(ypath(n,:),rk))/real(numSims,rk)
             !write (205, * ) meanY(n)
-            meanYemp(n)=sum(real(yemp(n,:),rk))/real(numSims,rk)
+            meanYemp(n)=sum(real(yemp(n,:),rk))/real(numSims,rk)            
             !write (205, * ) meanY(n)
+            meanAIME(n)=sum(real(AIME(n,:),rk))/real(numSims,rk)
         end do
         !L
         inquire (iolength=requiredl)  meanL
@@ -660,6 +748,16 @@
         open (unit=205, file='..\\out\Ypath.txt', status='unknown',recl=requiredl, action='write')
         write (205, '(6E15.3)' ) meanY
         close( unit=205)
+
+        inquire (iolength=requiredl)  meanYemp
+        open (unit=206, file='..\\out\YempPath.txt', status='unknown',recl=requiredl, action='write')
+        write (206, '(6E15.3)' ) meanYemp
+        close( unit=206)
+        
+        inquire (iolength=requiredl)  meanAIME
+        open (unit=207, file='..\\out\AIMEPath.txt', status='unknown',recl=requiredl, action='write')
+        write (207, '(6E15.3)' ) meanAIME
+        close( unit=207)        
         
     else !Gfort
         inquire (iolength=requiredl)  meanL
@@ -685,7 +783,12 @@
         inquire (iolength=requiredl)  meanYemp
         open (unit=206, file='./out/YempPath', status='unknown',recl=requiredl, action='write')
         write (206, * ) 'Header'
+
+        inquire (iolength=requiredl)  meanAIME
+        open (unit=207, file='./out/AIMEPath', status='unknown',recl=requiredl, action='write')
+        write (207, * ) 'Header'
     
+
         do n=1,Tperiods
             meanL(n)=sum(real(lpath(n,:),rk))/real(numSims,rk) !size(lpath(n,:))
             write (201, * ) meanL(n)
@@ -697,8 +800,11 @@
             write (204, * ) meanC(n)
             meanY(n)=sum(real(ypath(n,:),rk))/real(numSims,rk)
             write (205, * ) meanY(n)
-            meanYemp(n)=sum(real(yemp(n,:),rk))/real(meanL(n)*numSims,rk)
+            !meanYemp(n)=sum(real(yemp(n,:),rk))/real(meanL(n)*numSims,rk)
+            meanYemp(n)=sum(real(yemp(n,:),rk))/real(numSims,rk)
             write (206, * ) meanYemp(n)
+            meanAIME(n)=sum(real(AIME(n,:),rk))/real(numSims,rk)
+            write (207, * ) meanAIME(n)
          end do
         close( unit=201)
         close( unit=202)
@@ -706,7 +812,99 @@
         close( unit=204)
         close( unit=205)
         close( unit=206)
+        close( unit=207)
     end if
+
+    end subroutine
+    ! ---------------------------------------------------------------------------------------------------------!
+    ! ---------------------------------------------------------------------------------------------------------!
+    !!get asset grid
+    subroutine getassetgrid( params, maxInc, Agrid)
+        implicit none
+    !inputs
+    type (structparamstype), intent(in) :: params
+    real (kind=rk), intent(in) ::  maxInc(Tperiods)
+    !outputs
+    real (kind=rk), intent(out) :: Agrid(Tperiods+1, numPointsA)
+    !local
+    real (kind=rk) :: maxA(Tperiods+1), loggrid(numPointsA), span, test
+    integer :: ixt, i
+
+    !Set maximum assets
+    maxA(1) = params%startA;
+    do ixt = 2, Tperiods+1
+        maxA(ixt) = (maxA(ixt - 1) + maxInc(ixt-1) ) * (1+params%r)
+    end do
+
+    !Create asset grid
+    do ixt = 1, Tperiods+1
+        span =  (log(1.0+log(1.0+log(1+maxA(ixt)))) - log(1.0+log(1.0+log(1.0))) )/ (numPointsA-1)
+        loggrid = log(1.0+log(1.0+log(1.0))) + span*(/(i,i=0,numPointsA-1)/)
+        Agrid(ixt, :) = (/(exp(exp(exp(loggrid(i))-1.0)-1.0)-1.0,i=1,numPointsA)/) !exp(exp(exp(loggrid)-1)-1)-1
+    end do
+    test = sum(Agrid(1, :))/size(Agrid(ixt, :))
+
+
+    end subroutine
+    ! ---------------------------------------------------------------------------------------------------------!
+    ! ---------------------------------------------------------------------------------------------------------!
+    !!solve period
+    subroutine solvePeriod(params, grids, Yin, A, AIMEin ,ixt, lbA1, EV1, benefit,policyA1,policyC,policyL,V)
+    implicit none
+    !input
+    real(kind=rk), intent(in) :: Yin, A, lba1, EV1(:,:), benefit, AIMEin
+    type (structparamstype), intent(in) :: params
+    type (gridsType), intent(in) :: grids
+    integer, intent(in) :: ixt
+    !output
+    real(kind=rk), intent(out) :: policyA1, policyC, V
+    integer, intent(out) :: policyL
+    !local
+    integer :: ixl
+    real(kind=rk) :: Y, negV, negVtemp, ubA1, policyA1temp, AIME
+
+    negV = -huge(negv) !-log(0.0) !inf
+    AIME = AIMEin
+    do ixL = 0,(numPointsL-1),1           ! points of income choice
+        ! Value of income and information for optimisation
+        Y    = ixL*Yin+ (1-ixL)*benefit;
+        !AIME only depends on earned income so add spousal
+        !and pensions after calculating it
+        call gross2net(params,Y,ixt,ixl,AIME)
+        ! Next peridos AIME
+        if (ixL==1 .AND.  ixt < spouseretire) then
+                AIME =  Yin/ixt + AIME * (ixt-1)/ixt
+        else if ((ixL==0 .AND.  ixt < spouseretire)) then
+                AIME = AIME * (ixt-1)/ixt
+        end if
+
+        ubA1 = (A + Y - params%minCons)*(1+params%r);    ! upper bound: assets tomorrow
+
+        ! Compute solution
+        if (ubA1 - lbA1 < params%minCons) then         ! if liquidity constrained
+            negVtemp = objectivefunc(params, grids,lbA1, A, Y,ixL,ixt, AIME,EV1);
+            policyA1temp = lbA1;
+        else                               ! if interior solution
+            ![policyA1temp, negVtemp] = ...
+            !    fminbnd(@(A1) objectivefunc(A1, A, Y,ixL,ixt, AIME), lbA1, ubA1, optimset('TolX',tol));
+            negVtemp = golden_generic(lbA1, ubA1, policyA1temp, func,params%tol,.FALSE.)
+        end if! if (ubA1 - lbA1 < minCons)
+        if (negVtemp > negV) then
+            negV = negVtemp
+            policyA1=policyA1temp
+            policyL=ixL
+            policyC = A + Y - policyA1/(1+params%r)
+            ! Store solution and its value
+        end if
+    end do
+    !testC = policyC(ixt, ixA, ixY,ixAIME)
+    V  = negV;
+    contains
+    function func(x)
+    real (kind = rk), intent(in) :: x
+    real (kind = rk) :: func
+    func = objectivefunc(params, grids,x, A, Y,ixL,ixt, AIME,EV1)
+    end function
 
     end subroutine
 

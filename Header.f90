@@ -2,15 +2,15 @@
 
     integer, parameter :: rk = selected_real_kind(15)
 
-    integer, parameter :: numPointsA = 20 !45
+    integer, parameter :: numPointsA = 30 !30 !20 !30 !45
     integer, parameter :: numPointsY = 20
-    integer, parameter :: numAIME = 5 !5
+    integer, parameter :: numAIME = 10 !5 !10  !5!10 !5 !5
     integer, parameter :: numPointsL = 2
-    integer, parameter :: numSims = 10000 !10000
-    integer, parameter :: Tperiods = 75
+    integer, parameter :: numSims = 5000 !10000
+    integer, parameter :: Tperiods = 85
     integer, parameter :: Tretire =40
     integer, parameter :: normBnd = 4
-    integer, parameter :: dimEstimation = 3
+    integer, parameter :: dimEstimation = 5
     integer, parameter :: spouseretire = 45
     integer, parameter :: stopwrok = 60
 
@@ -30,6 +30,8 @@
         real (kind=rk) :: hrsWrk
         real (kind=rk) :: spouseInc
         real (kind=rk) :: minCons
+        real (kind=rk) :: db(2)
+        real (kind=rk) :: startA
         !real (kind=rk) :: tol, minCons
         real (kind=rk) :: tol
         integer :: system
@@ -41,6 +43,8 @@
         real (kind=rk) :: incTransitionMrx(numPointsY,numPointsY)
         real (kind=rk) :: AIMEgrid(Tperiods+1,numAIME)
         real (kind=rk) :: benefit(Tperiods)
+        real (kind=rk) :: fc(Tperiods)
+        real (kind=rk) :: maxInc(Tperiods)
     end type gridsType
 
     end module Header
