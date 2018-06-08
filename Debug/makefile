@@ -28,7 +28,7 @@ all: EclipseProj
 EclipseProj: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GNU Fortran Linker'
-	gfortran  -o "EclipseProj" $(OBJS) $(USER_OBJS) $(LIBS)
+	gfortran -fopenmp -o "EclipseProj" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

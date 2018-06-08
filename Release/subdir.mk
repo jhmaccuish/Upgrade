@@ -20,7 +20,7 @@ OBJS += \
 %.o: ../%.f90
 	@echo 'Building file: $<'
 	@echo 'Invoking: GNU Fortran Compiler'
-	gfortran -funderscoring -O3 -Wall -c -fmessage-length=0 -o "$@" "$<"
+	gfortran -funderscoring -O3 -c -fmessage-length=0 -v -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

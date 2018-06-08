@@ -1600,105 +1600,127 @@
     end subroutine getannuityratesnew
     ! ---------------------------------------------------------------------------------------------------------!
 
+! ---------------------------------------------------------------------------------------------------------!
+! ---------------------------------------------------------------------------------------------------------!
+!********************************************************************
+! FUNCTION: sumindex
+!I took this from Hamish Low's code
+! Instructions:
+! (1) size of nmindex = size of mindex ( = ndim in the code)
+!********************************************************************
+      function sumindex(nmindex, mindex, rowMajor)
+        implicit none
+        
+        
+!******* input variables *******
+        integer, intent (in), dimension (:) :: nmindex, mindex
+        logical, intent(in) :: rowMajor
+        
+!******* output variables *******
+        integer :: sumindex
 
-    ! ---------------------------------------------------------------------------------------------------------!
-    ! ---------------------------------------------------------------------------------------------------------!
-    !********************************************************************
-    ! FUNCTION: sumindex
-    !I took this from Hamish's code
-    ! Instructions:
-    ! (1) size of nmindex = size of mindex ( = ndim in the code)
-    !********************************************************************
-    function sumindex(nmindex, mindex)
-    implicit none
+!******* local variables *******
+        integer :: ndim, dim0
 
-    !******* input variables *******
-    integer, intent (in), dimension (:) :: nmindex, mindex
+!******* check the dimension of index *******
+        ndim = size(nmindex)
 
-    !******* output variables *******
-    integer :: sumindex
+!******* one dimension *******
+        if (ndim.eq.1) then
+          sumindex = mindex(1)
+          return
+        end if
 
-    !******* local variables *******
-    integer :: ndim, dim0
+!******* compute the summarized index *******
+        if (rowMajor) then
+            sumindex = 0
+            do dim0 = 1, ndim - 1
+              sumindex = sumindex + (mindex(dim0)-1)*product(nmindex(dim0+1:ndim))
+            end do
+            sumindex = sumindex + mindex(ndim)
+        else
+            sumindex = mindex(1) 
+            do dim0 = 2, ndim
+              sumindex = sumindex + (mindex(dim0)-1)*product(nmindex(1:dim0-1))
+            end do           
+        end if
 
-    !******* check the dimension of index *******
-    ndim = size(nmindex)
-
-    !******* one dimension *******
-    if (ndim.eq.1) then
-        sumindex = mindex(1)
+!******* end of function *******
         return
-    end if
 
-    !******* compute the summarized index *******
-    sumindex = 0
-    do dim0 = 1, ndim - 1
-        sumindex = sumindex + (mindex(dim0)-1)*product(nmindex(dim0+1:ndim))
-    end do
-    sumindex = sumindex + mindex(ndim)
+      end function sumindex
 
-    !******* end of function *******
-    return
+!********************************************************************
+! FUNCTION: inv_sumindex
+!I took this from Hamish Low's code
+! Instructions:
+! (1) size of nmindex >= 2 (=ndim in the code)
+! (2) sindex >= 1 and <= product(nmindex(1:ndim))
+!********************************************************************
+      function inv_sumindex(nmindex, sindex, rowMajor)
+        implicit none
 
-    end function sumindex
+        
+!******* input variables *******
+        integer, intent (in), dimension (:) :: nmindex
+        integer, intent (in) :: sindex
+        logical, intent(in) :: rowMajor
 
-    !********************************************************************
-    ! FUNCTION: inv_sumindex
-    !I took this from Hamish's code
-    ! Instructions:
-    ! (1) size of nmindex >= 2 (=ndim in the code)
-    ! (2) sindex >= 1 and <= product(nmindex(1:ndim))
-    !********************************************************************
-    function inv_sumindex(nmindex, sindex)
-    implicit none
+!******* output variable *******
+        integer, dimension (size(nmindex)) :: inv_sumindex
 
-    !******* input variables *******
-    integer, intent (in), dimension (:) :: nmindex
-    integer, intent (in) :: sindex
+!******* local variables *******
+        integer :: ndim, dim0, indextemp
 
-    !******* output variable *******
-    integer, dimension (size(nmindex)) :: inv_sumindex
+!******* check the dimension of index *******
+        ndim = size(nmindex)
 
-    !******* local variables *******
-    integer :: ndim, dim0, indextemp
+!******* one dimension *******
+        if (ndim.eq.1) then
+          inv_sumindex(1) = sindex
+          return
+        end if
 
-    !******* check the dimension of index *******
-    ndim = size(nmindex)
+!******* set indextemp *******
+        indextemp = sindex
+        
+        if (rowMajor) then 
+!******* last dimension is a bit different *******
+            inv_sumindex(ndim) = mod(indextemp, nmindex(ndim))
+            if (inv_sumindex(ndim).eq.0) inv_sumindex(ndim) = nmindex(ndim)
+            indextemp = (indextemp-inv_sumindex(ndim))/nmindex(ndim)
 
-    !******* one dimension *******
-    if (ndim.eq.1) then
-        inv_sumindex(1) = sindex
+!******* between the 2nd and the last dimension *******
+            if (ndim.gt.2) then
+                do dim0 = ndim - 1, 2, -1
+                    inv_sumindex(dim0) = mod(indextemp, nmindex(dim0)) + 1
+                    indextemp = (indextemp-(inv_sumindex(dim0)-1))/nmindex(dim0)
+                end do
+            end if
+
+!******* 1st dimension is a bit different, too *******
+            inv_sumindex(1) = indextemp + 1
+        else
+!******* last dimension is a bit different *******
+            inv_sumindex(1) = mod(indextemp, nmindex(1))
+            if (inv_sumindex(1).eq.0) inv_sumindex(1) = nmindex(1)
+            indextemp = (indextemp-inv_sumindex(1))/nmindex(1)
+
+!******* between the 2nd and the last dimension *******
+            if (ndim.gt.2) then
+                do dim0 =2,ndim - 1, 1
+                    inv_sumindex(dim0) = mod(indextemp, nmindex(dim0)) + 1
+                    indextemp = (indextemp-(inv_sumindex(dim0)-1))/nmindex(dim0)
+                end do
+            end if
+
+!******* 1st dimension is a bit different, too *******
+            inv_sumindex(ndim) = indextemp + 1            
+        end if
+!******* end of function *******
         return
-    end if
 
-    !******* set indextemp *******
-    indextemp = sindex
-
-    !******* last dimension is a bit different *******
-    inv_sumindex(ndim) = mod(indextemp, nmindex(ndim))
-    if (inv_sumindex(ndim).eq.0) inv_sumindex(ndim) = nmindex(ndim)
-    indextemp = (indextemp-inv_sumindex(ndim))/nmindex(ndim)
-
-    !******* between the 2nd and the last dimension *******
-    if (ndim.gt.2) then
-        do dim0 = ndim - 1, 2, -1
-            inv_sumindex(dim0) = mod(indextemp, nmindex(dim0)) + 1
-            indextemp = (indextemp-(inv_sumindex(dim0)-1))/nmindex(dim0)
-        end do
-    end if
-
-    !******* 1st dimension is a bit different, too *******
-    inv_sumindex(1) = indextemp + 1
-
-    !******* end of function *******
-    return
-
-    end function inv_sumindex
-
-
-
-
-
+      end function inv_sumindex
 
     !---------------------------------------------------------------------------------------------------------!
     !---------------------------------------------------------------------------------------------------------!
@@ -1853,27 +1875,28 @@
     SUBROUTINE amoeba(p,y,ftol,func,iter)
     IMPLICIT NONE
     INTEGER(kind=4), INTENT(OUT) :: iter
-    REAL(kind=8), INTENT(IN) :: ftol
-    REAL(kind=8), DIMENSION(:), INTENT(INOUT) :: y
-    REAL(kind=8), DIMENSION(:,:), INTENT(INOUT) :: p
+    REAL(kind=rk), INTENT(IN) :: ftol
+    REAL(kind=rk), DIMENSION(:), INTENT(INOUT) :: y
+    REAL(kind=rk), DIMENSION(:,:), INTENT(INOUT) :: p
     INTERFACE
     FUNCTION func(x)
+    use header
     IMPLICIT NONE
-    REAL(kind=8), DIMENSION(:), INTENT(IN) :: x
-    REAL(kind=8) :: func
+    REAL(kind=rk), DIMENSION(:), INTENT(IN) :: x
+    REAL(kind=rk) :: func
     END FUNCTION func
     END INTERFACE
     INTEGER(kind=4), PARAMETER :: ITMAX=5000
-    REAL(kind=8), PARAMETER :: TINY=1.0D-10
+    REAL(kind=rk), PARAMETER :: TINY=1.0D-10
     INTEGER(kind=4) :: ihi,ndim
-    REAL(kind=8), DIMENSION(size(p,2)) :: psum
+    REAL(kind=rk), DIMENSION(size(p,2)) :: psum
     call amoeba_private
     CONTAINS
 
     SUBROUTINE amoeba_private
     IMPLICIT NONE
     INTEGER(kind=4) :: i,ilo,inhi
-    REAL(kind=8) :: rtol,ysave,ytry,ytmp
+    REAL(kind=rk) :: rtol,ysave,ytry,ytmp
     IF((size(p,2) == size(p,1) - 1) .and. (size(p,2) == size(y) -1))THEN
         ndim = size(y) - 1
     ELSE
@@ -1881,8 +1904,9 @@
     ENDIF
     iter=0
     psum(:)=sum(p(:,:),dim=1)
+    !!$OMP PARALLEL default(shared)
+    !!$omp do
     do
-        print '("Relative tolerance",f6.3)',rtol
         ilo=iminloc(y(:))
         ihi=imaxloc(y(:))
         ytmp=y(ihi)
@@ -1890,6 +1914,7 @@
         inhi=imaxloc(y(:))
         y(ihi)=ytmp
         rtol=2.0D0*abs(y(ihi)-y(ilo))/(abs(y(ihi))+abs(y(ilo))+TINY)
+        print '("Relative tolerance",f6.3, " Value ",f16.3)',rtol,y(ilo)
         if (rtol < ftol) then
             call swap_scalar(y(1),y(ilo))
             call swap_vector(p(1,:),p(ilo,:))
@@ -1915,14 +1940,17 @@
             end if
         end if
     end do
+    !!$omp end do
+    !!$OMP END PARALLEL
+
     END SUBROUTINE amoeba_private
 
     FUNCTION amotry(fac)
     IMPLICIT NONE
-    REAL(kind=8), INTENT(IN) :: fac
-    REAL(kind=8) :: amotry
-    REAL(kind=8) :: fac1,fac2,ytry
-    REAL(kind=8), DIMENSION(size(p,2)) :: ptry
+    REAL(kind=rk), INTENT(IN) :: fac
+    REAL(kind=rk) :: amotry
+    REAL(kind=rk) :: fac1,fac2,ytry
+    REAL(kind=rk), DIMENSION(size(p,2)) :: ptry
     fac1=(1.0D0-fac)/ndim
     fac2=fac1-fac
     ptry(:)=psum(:)*fac1-p(ihi,:)*fac2
@@ -1936,29 +1964,29 @@
     END FUNCTION amotry
 
     FUNCTION imaxloc(arr)
-    REAL(kind=8), DIMENSION(:), INTENT(IN) :: arr
+    REAL(kind=rk), DIMENSION(:), INTENT(IN) :: arr
     INTEGER(kind=4) :: imaxloc
     INTEGER(kind=4), DIMENSION(1) :: imax
     imax=maxloc(arr(:))
     imaxloc=imax(1)
     END FUNCTION imaxloc
     FUNCTION iminloc(arr)
-    REAL(kind=8), DIMENSION(:), INTENT(IN) :: arr
+    REAL(kind=rk), DIMENSION(:), INTENT(IN) :: arr
     INTEGER(kind=4) :: iminloc
     INTEGER(kind=4), DIMENSION(1) :: imax
     imax=minloc(arr(:))
     iminloc=imax(1)
     END FUNCTION iminloc
     SUBROUTINE swap_scalar(a,b)
-    REAL(kind=8), INTENT(INOUT) :: a,b
-    REAL(kind=8) :: dum
+    REAL(kind=rk), INTENT(INOUT) :: a,b
+    REAL(kind=rk) :: dum
     dum=a
     a=b
     b=dum
     END SUBROUTINE swap_scalar
     SUBROUTINE swap_vector(a,b)
-    REAL(kind=8), DIMENSION(:), INTENT(INOUT) :: a,b
-    REAL(kind=8), DIMENSION(SIZE(a)) :: dum
+    REAL(kind=rk), DIMENSION(:), INTENT(INOUT) :: a,b
+    REAL(kind=rk), DIMENSION(SIZE(a)) :: dum
     dum=a
     a=b
     b=dum
@@ -2033,6 +2061,39 @@
 
 
     end subroutine linearinterp3_withextrap
+    !!!!
+    !!!!Median
+    !!!!
+      function median(a, found)
+    real(kind=rk), dimension(:), intent(in) :: a
+      ! the optional found argument can be used to check
+      ! if the function returned a valid value; we need this
+      ! just if we suspect our "vector" can be "empty"
+    logical, optional, intent(out) :: found
+    real(kind=rk) :: median
 
-    
+    integer :: l
+    real(kind=rk), dimension(size(a,1)) :: ac
+
+    if ( size(a,1) < 1 ) then
+       if ( present(found) ) found = .false.
+    else
+       ac = a
+       ! this is not an intrinsic: peek a sort algo from
+       ! Category:Sorting, fixing it to work with real if
+       ! it uses integer instead.
+       call sort(ac,size(a,1))
+
+       l = size(a,1)
+       if ( mod(l, 2) == 0 ) then
+          median = (ac(l/2+1) + ac(l/2))/2.0
+       else
+          median = ac(l/2+1)
+       end if
+
+       if ( present(found) ) found = .true.
+    end if
+
+      end function median
+      
     end module routines_generic

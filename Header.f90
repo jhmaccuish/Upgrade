@@ -3,12 +3,12 @@
     integer, parameter :: rk = selected_real_kind(15)
 
     integer, parameter :: numPointsA = 30 !30 !20 !30 !45
-    integer, parameter :: numPointsY = 20
-    integer, parameter :: numAIME = 10 !5 !10  !5!10 !5 !5
+    integer, parameter :: numPointsY = 10 !20
+    integer, parameter :: numAIME = 30 !10 !5
     integer, parameter :: numPointsL = 2
-    integer, parameter :: numSims = 5000 !10000
+    integer, parameter :: numSims = 250 !5000 !10000!
     integer, parameter :: Tperiods = 85
-    integer, parameter :: Tretire =40
+    integer, parameter :: Tretire =42
     integer, parameter :: normBnd = 4
     integer, parameter :: dimEstimation = 5
     integer, parameter :: spouseretire = 45
@@ -46,5 +46,8 @@
         real (kind=rk) :: fc(Tperiods)
         real (kind=rk) :: maxInc(Tperiods)
     end type gridsType
+
+    !! For mpi
+    integer :: rank, ierror, procsize
 
     end module Header
