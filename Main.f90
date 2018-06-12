@@ -29,12 +29,12 @@
     real (kind=rk) :: minInc(Tperiods), maxA(Tperiods+1)
     real (kind=rk) :: span, loggrid(numPointsA)
     integer :: ixT, i
-    real (kind=rk) :: V(Tperiods+1, numPointsA, numPointsY, numAIME)
-    real (kind=rk) :: policyA1(Tperiods, numPointsA, numPointsY, numAIME)
-    real (kind=rk) :: policyC(Tperiods, numPointsA, numPointsY, numAIME)
-    integer :: policyL(Tperiods, numPointsA, numPointsY, numAIME)
-    real (kind=rk) :: EV(Tperiods+1, numPointsA, numPointsY, numAIME)
-    real (kind=rk) :: EdU(Tperiods,   numPointsA, numPointsY, numAIME)
+    real (kind=rk) :: V(Tperiods+1, numPointsA, numAIME, numPointsY)
+    real (kind=rk) :: policyA1(Tperiods, numPointsA, numAIME, numPointsY)
+    real (kind=rk) :: policyC(Tperiods, numPointsA, numAIME, numPointsY)
+    integer :: policyL(Tperiods, numPointsA, numAIME, numPointsY)
+    real (kind=rk) :: EV(Tperiods+1, numPointsA, numAIME, numPointsY)
+    real (kind=rk) :: EdU(Tperiods,   numPointsA, numAIME, numPointsY)
 
     real (kind=rk) :: ypath(Tperiods, numSims) !income
     real (kind=rk) :: yemp(Tperiods, numSims)
@@ -49,7 +49,7 @@
     !    character (20) :: format_numpeepcols
     !    character (20) :: format_numpeepcols_int
     real (kind=rk) :: start, finish, moments(2,24), error, test, starsim
-    integer :: action, ios, inter, requiredl
+    integer :: action, ios, inter, requiredl, provided 
     INTEGER(kind=4) :: iter
     REAL(kind=rk) :: y(dimEstimation+1)
     REAL(kind=rk) :: p(dimEstimation+1,dimEstimation)
@@ -106,7 +106,20 @@
     params%db(1) = 0.91387622628345655 !0.80643840150485868  !0.893686680412417 !0.893279806195867 !
     params%db(2) = -4.7393420983952571E-005 !-4.050600090249978E-005 !-8.223557117746168E-002!
 
-
+#ifdef mpi    
+    call MPI_Init_thread(MPI_THREAD_MULTIPLE,provided,ierror)!mpi_init
+    if (ierror.ne.0) stop 'mpi problem171'
+    call mpi_comm_rank(mpi_comm_world, rank, ierror)
+    call mpi_comm_size(mpi_comm_world, procSize, ierror)
+    if (ierror.ne.0) stop 'mpi problem172'
+    if (rank.eq.0) write (*, *) 'Using MPI in solution. Using', procSize, 'cores'
+    if (rank.eq.0) write(*,*)
+    call mpi_barrier(mpi_comm_world, ierror)
+    if (ierror.ne.0) stop 'mpi problem173'
+#else
+    rank = 0
+    procSize = 1
+#endif  
     action =2
     if (action .EQ. 1) then
         !        params%nu =     0.37490145517514262 !0.33102935844275810! 0.38022456150504280 !0.339785209413524 !0.466352772226276 !
@@ -122,7 +135,7 @@
         params%db(2) = -4.6263715941694290E-005!-4.7393420983952571E-005 !
 
         call getassetgrid( params, grids%maxInc, grids%Agrid)
-        call solveValueFunction( params, grids, policyA1, policyC, policyL, V, EV, EdU, .TRUE. )
+        call solveValueFunction( params, grids, policyA1, policyC, policyL, V, EV, .TRUE. )
         !simulate
         call cpu_time(starsim)
         call simWithUncer(params, grids, policyA1,policyL,EV, ypath, cpath, apath, vpath, lpath, yemp, AIME )
@@ -132,6 +145,7 @@
         call writetofile(params, ypath, cpath, apath, vpath, lpath, yemp,AIME)
 
     else
+
         if (params%system == 1 ) then
             open (unit = 1001,file='..\\..\\moments\\moments.txt', action='read', IOSTAT = ios)
         else
@@ -147,13 +161,16 @@
 
         !error = golden_generic(0.0_rk, 1.0_rk, nu, gmm_criteria,0.001_rk,.TRUE.)
         !print '("Nu = ",f6.3)',nu
+        if (rank==0) then
+            print '("Setting up initial guess for hilling climbing algorithm")'
+        end if
 
-        print '("Setting up initial guess for hilling climbing algorithm")'
-        !Setting up initial guess for hilling climbing algorithm
-
-        !!$omp parallel default(shared)   
+        !!$omp parallel default(shared)
         !!$omp sections
         !!$omp section
+        if (rank==0) then
+            print '("Guess 1")'
+        end if        
         p(1,1) = params%nu
         p(1,2) = params%beta
         p(1,3) = params%gamma
@@ -165,6 +182,9 @@
         y(1) = gmm_criteria(p(1,:))
 
         !!$omp section
+        if (rank==0) then
+            print '("Guess 2")'
+        end if              
         p(2,1) = 0.4637
         p(2,2) = 0.970
         P(2,3) = 1
@@ -176,6 +196,9 @@
         y(2) = gmm_criteria(p(2,:))
 
         !!$omp section
+        if (rank==0) then
+            print '("Guess 3")'
+        end if          
         p(3,1) = 0.322
         p(3,2) = 0.9843
         P(3,3) = 2
@@ -187,6 +210,9 @@
         y(3) = gmm_criteria(p(3,:))
 
         !!$omp section
+        if (rank==0) then
+            print '("Guess 4")'
+        end if          
         p(4,1) = 0.55
         p(4,2) = 0.96
         P(4,3) = 0.5
@@ -198,6 +224,9 @@
         y(4) = gmm_criteria(p(4,:))
 
         !!$omp section
+        if (rank==0) then
+            print '("Guess 5")'
+        end if          
         p(5,1) = 0.15
         p(5,2) = 0.9999
         P(5,3) = 4
@@ -209,6 +238,9 @@
         y(5) = gmm_criteria(p(5,:))
 
         !!$omp section
+        if (rank==0) then
+            print '("Guess 6")'
+        end if          
         p(6,1) = 0.27
         p(6,2) = 0.986
         P(6,3) = 0.9
@@ -232,36 +264,54 @@
         !!$omp end sections
         !!$omp end parallel
         call amoeba(p,y,0.02_rk,gmm_criteria,iter) !0.002_8
-
-        print '("P = ",f6.3)',P(1,:)
-        print '("Y = ",f16.3)',Y
-        !params%nu =
-        if (params%system == 1 ) then !ifort
-            inquire (iolength=requiredl)  P(1,:)
-            open (unit=201, file='..\\out\params.txt', status='unknown',recl=requiredl, action='write')
-            write (201, * ) P(1,:)
-        else !Gfort
-            inquire (iolength=requiredl)  P
-            open (unit=201, file='./out/params.txt', status='unknown',recl=requiredl, action='write')
-            !write (201, * ) P(1,:)
-            write (201, * ) P(1,1)
-            write (201, * ) P(1,2)
-            write (201, * ) P(1,3)
-            write (201, * ) P(1,4)
-            write (201, * ) P(1,5)
-            !write (201, * ) P(1,6)
+        if (rank==0) then
+            print '("P = ",f6.3)',P(1,:)
+            print '("Y = ",f16.3)',Y
+            !params%nu =
+            if (params%system == 1 ) then !ifort
+                inquire (iolength=requiredl)  P(1,:)
+                open (unit=201, file='..\\out\params.txt', status='unknown',recl=requiredl, action='write')
+                write (201, * ) P(1,:)
+            else !Gfort
+                inquire (iolength=requiredl)  P
+                open (unit=201, file='./out/params.txt', status='unknown',recl=requiredl, action='write')
+                !write (201, * ) P(1,:)
+                write (201, * ) P(1,1)
+                write (201, * ) P(1,2)
+                write (201, * ) P(1,3)
+                write (201, * ) P(1,4)
+                write (201, * ) P(1,5)
+                !write (201, * ) P(1,6)
+            end if
+            close (unit=201)
+       
+            print '("Generating files")'
         end if
-        close (unit=201)
-
-        print '("Generating files")'
-        call solveValueFunction( params, grids, policyA1, policyC, policyL, V, EV, EdU, .FALSE. )
-        call simWithUncer(params, grids, policyA1,policyL,EV, ypath, cpath, apath, vpath, lpath, yemp ,AIME)
-        call writetofile(params, ypath, cpath, apath, vpath, lpath, yemp,AIME)
-
+        
+        call solveValueFunction( params, grids, policyA1, policyC, policyL, V, EV, .FALSE. )
+        
+        if (rank==0) then
+            call simWithUncer(params, grids, policyA1,policyL,EV, ypath, cpath, apath, vpath, lpath, yemp ,AIME)
+            call writetofile(params, ypath, cpath, apath, vpath, lpath, yemp,AIME)
+        end if 
+#ifdef mpi 
+    call mpi_barrier(mpi_comm_world, ierror)
+    if (ierror.ne.0) stop 'mpi problem180'
+#endif        
     end if
-    call cpu_time(finish)
-    print '("Time = ",f11.3," seconds.")',finish-start
-
+    
+    if (rank==0) then
+        call cpu_time(finish)
+        print '("Time = ",f11.3," seconds.")',finish-start
+    end if
+#ifdef mpi
+    call mpi_barrier(mpi_comm_world, ierror)
+    if (ierror.ne.0) stop 'mpi problem180'
+    if (rank.eq.0) then
+        call mpi_finalize(ierror)
+    end if
+    if (ierror.ne.0) stop 'mpi problem190'
+#endif
 
     contains
     function gmm_criteria(control)
@@ -283,7 +333,7 @@
     params%gamma = control(3)
     params%db(1)= control(4)
     params%db(2)= control(5)
-    params%StartA= control(6)
+    !params%StartA= control(6)
     !params%spouseinc = control(3)
     gmm_criteria = gmm(params,grids,moments) !*-1.0
 

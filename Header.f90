@@ -49,5 +49,6 @@
 
     !! For mpi
     integer :: rank, ierror, procsize
+    integer, parameter :: mpiDim =  numPointsA * numAIME  
 
     end module Header

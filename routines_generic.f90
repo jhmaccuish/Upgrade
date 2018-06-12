@@ -1914,7 +1914,9 @@
         inhi=imaxloc(y(:))
         y(ihi)=ytmp
         rtol=2.0D0*abs(y(ihi)-y(ilo))/(abs(y(ihi))+abs(y(ilo))+TINY)
-        print '("Relative tolerance",f6.3, " Value ",f16.3)',rtol,y(ilo)
+        if (rank==0) then
+            print '("Relative tolerance",f6.3, " Value ",f16.3)',rtol,y(ilo)
+        end if
         if (rtol < ftol) then
             call swap_scalar(y(1),y(ilo))
             call swap_vector(p(1,:),p(ilo,:))
