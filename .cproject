@@ -24,7 +24,7 @@
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1390724243" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="photran.managedbuild.tool.gnu.fortran.compiler.exe.debug.204785891" name="GNU Fortran Compiler" superClass="photran.managedbuild.tool.gnu.fortran.compiler.exe.debug">
-								<option id="gnu.fortran.compiler.option.misc.other.1682844566" name="Other flags" superClass="gnu.fortran.compiler.option.misc.other" useByScannerDiscovery="false" value="-fopenmp -c -fmessage-length=0" valueType="string"/>
+								<option id="gnu.fortran.compiler.option.misc.other.1682844566" name="Other flags" superClass="gnu.fortran.compiler.option.misc.other" useByScannerDiscovery="false" value="-cpp  -fopenmp -c -fmessage-length=0  -ffree-line-length-none -std=f2008" valueType="string"/>
 								<inputType id="photran.managedbuild.tool.gnu.fortran.compiler.input.1875956180" superClass="photran.managedbuild.tool.gnu.fortran.compiler.input"/>
 							</tool>
 							<tool id="photran.managedbuild.tool.gnu.fortran.linker.exe.debug.1805990544" name="GNU Fortran Linker" superClass="photran.managedbuild.tool.gnu.fortran.linker.exe.debug">
@@ -68,7 +68,7 @@
 							</tool>
 							<tool command="gfortran " id="photran.managedbuild.tool.gnu.fortran.compiler.exe.release.1795378670" name="GNU Fortran Compiler" superClass="photran.managedbuild.tool.gnu.fortran.compiler.exe.release">
 								<option id="gnu.fortran.compiler.option.optimization.flags.1535031213" name="Other optimization flags" superClass="gnu.fortran.compiler.option.optimization.flags" useByScannerDiscovery="false" value="" valueType="string"/>
-								<option id="gnu.fortran.compiler.option.misc.other.363973478" name="Other flags" superClass="gnu.fortran.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 " valueType="string"/>
+								<option id="gnu.fortran.compiler.option.misc.other.363973478" name="Other flags" superClass="gnu.fortran.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -ffree-line-length-none" valueType="string"/>
 								<option id="gnu.fortran.compiler.option.misc.verbose.1421540265" name="Verbose (-v)" superClass="gnu.fortran.compiler.option.misc.verbose" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="gnu.fortran.compiler.option.warnings.allwarn.545953174" name="All warnings (-Wall)" superClass="gnu.fortran.compiler.option.warnings.allwarn" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<inputType id="photran.managedbuild.tool.gnu.fortran.compiler.input.1599579916" superClass="photran.managedbuild.tool.gnu.fortran.compiler.input"/>
@@ -93,9 +93,6 @@
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 		<project id="EclipseProj.photran.managedbuild.target.gnu.fortran.exe.1103440638" name="Executable (Gnu Fortran on Linux/*nix)" projectType="photran.managedbuild.target.gnu.fortran.exe"/>
 	</storageModule>
-	<storageModule moduleId="scannerConfiguration">
-		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Debug">
@@ -106,4 +103,13 @@
 		</configuration>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="photran.managedbuild.config.gnu.fortran.exe.debug.720772876;photran.managedbuild.config.gnu.fortran.exe.debug.720772876.">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="photran.managedbuild.config.gnu.fortran.exe.debug.720772876;photran.managedbuild.config.gnu.fortran.exe.debug.720772876.;photran.managedbuild.tool.gnu.c.compiler.exe.debug.1688136858;cdt.managedbuild.tool.gnu.c.compiler.input.1390724243">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+	</storageModule>
 </cproject>

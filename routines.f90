@@ -26,7 +26,7 @@
 
     !local
     real (kind=rk) :: sig_inc, ly(numPointsY), upper(Tperiods+1), a !Q(numPointsY,numPointsY)
-    integer :: t, i
+    integer :: t, i, workAge
 
     sig_inc = params%sigma/((1-params%rho**2)**0.5)
 
@@ -40,9 +40,10 @@
     params%pension = 107.45*52
     upper(1) = 0
     do t=1 , Tperiods
-        Ygrid(t,:)= exp(ly+params%delta(1)*t**2+params%delta(2)*t+params%delta(3)-fc(t))
-        minInc(t) = exp((-normBnd * sig_inc)+params%delta(1)*t**2+params%delta(2)*t+params%delta(3)-fc(t))
-        maxInc(t) = exp((normBnd * sig_inc)+params%delta(1)*t**2+params%delta(2)*t+params%delta(3)-fc(t))
+        workAge = startAge - 20 + t
+        Ygrid(t,:)= exp(ly+params%delta(1)*workAge**2+params%delta(2)*workAge+params%delta(3)-fc(t))
+        minInc(t) = exp((-normBnd * sig_inc)+params%delta(1)*workAge**2+params%delta(2)*workAge+params%delta(3)-fc(t))
+        maxInc(t) = exp((normBnd * sig_inc)+params%delta(1)*workAge**2+params%delta(2)*workAge+params%delta(3)-fc(t))
         upper(t+1) = upper(t) + maxInc(t)
         if (t <=spouseretire) then
             a = (upper(t+1)/t)/(numAIME-1)
@@ -181,7 +182,7 @@
 
     !----------------------------------------------------------------------------------!
     ! Initialize MPI
-    !----------------------------------------------------------------------------------!     
+    !----------------------------------------------------------------------------------!
 
     indexBigN(1) = numPointsA
     indexBigN(2) = numAIME
@@ -208,7 +209,7 @@
     policyC(:,:,:,:) = 0
     policyA1(:,:,:,:) = 0
 
-    
+
     do ixt=Tperiods,1, -1                               ! Loop from time T-1 to 1
         !Agrid1 = grids%Agrid(ixt + 1, :);               ! The grid on assets tomorrow
         AIME1grid = grids%AIMEgrid(ixt + 1, :);
@@ -290,10 +291,10 @@
         otherDimP = numPointsY
         allocate(LocV(locVecSize*otherDimP),LocpolicyA1(locVecSize*otherDimP),LocpolicyC(locVecSize*otherDimP),LocEV(locVecSize*otherDimP),LocpolicyL(locVecSize*otherDimP))
 
-        
+
         call unpackArrays(policyL(ixt, :, :, :), policyA1(ixt, :, :, :), policyC(ixt, :, :, :), V(ixt, :, :, :), EV(ixt, :, :, :), &
             locpolicyL, locpolicyA1, locpolicyC, locV, locEV, mpiDim,otherDimP,thisCoreStart,thisCoreEnd)
-        
+
         !!write(*,*) rank, locVecSize, otherDimP
         !write(*,*) "PL", sum(policyL(ixt, :, :, :))
         !write(*,*) "VecL", sum(LocpolicyL)
@@ -316,21 +317,21 @@
         !!if (ierror.ne.0) stop 'mpi problem180
         !
         !write(*,*) "EV", sum(EV(ixt, :, :, :))
-        !write(*,*) "VecEV", sum(LocEV)        
+        !write(*,*) "VecEV", sum(LocEV)
         !
-        
-        
-        
+
+
+
         call mpi_allgather(LocV(1), locVecSize*otherDimP, mpi_double_precision, VecV(1), locVecSize*otherDimP, mpi_double_precision, mpi_comm_world, ierror)
         call mpi_allgather(LocpolicyA1(1), locVecSize*otherDimP, mpi_double_precision, VecpolicyA1(1), locVecSize*otherDimP, mpi_double_precision, mpi_comm_world, ierror)
         call mpi_allgather(LocpolicyC(1), locVecSize*otherDimP, mpi_double_precision, VecpolicyC(1), locVecSize*otherDimP, mpi_double_precision, mpi_comm_world, ierror)
         call mpi_allgather(LocEV(1), locVecSize*otherDimP, mpi_double_precision, VecEV(1), locVecSize*otherDimP, mpi_double_precision, mpi_comm_world, ierror)
-         !write(*,*) 3
+        !write(*,*) 3
         call mpi_allgather(LocpolicyL(1), locVecSize*otherDimP, mpi_integer, VecpolicyL(1), locVecSize*otherDimP, mpi_integer, mpi_comm_world, ierror)
-         !       write(*,*) 8
-        
+        !       write(*,*) 8
+
         deallocate(LocV,LocpolicyA1,LocpolicyC,LocEV,LocpolicyL)
-        
+
         tempV = VecV
         temppolicyA1 = VecpolicyA1
         temppolicyC = VecpolicyC
@@ -365,7 +366,7 @@
             deallocate(LocV,LocpolicyA1,LocpolicyC,LocEV,LocpolicyL)
         end do!
 
-        
+
         V(ixt, :, :, :) = reshape(VecV, (/numPointsA, numAIME, numPointsY/))
         policyA1(ixt, :, :, :) = reshape(VecpolicyA1, (/numPointsA, numAIME, numPointsY/))
         policyC(ixt, :, :, :) = reshape(VecpolicyC, (/numPointsA, numAIME, numPointsY/))
@@ -374,12 +375,14 @@
 
         call mpi_barrier(mpi_comm_world, ierror)
         if (ierror.ne.0) stop 'mpi problem180'
-        
+
 #endif   
-        if (show) WRITE(*,*)  'Passed period ', ixt, ' of ',  Tperiods
+        if (show .AND. rank==0) WRITE(*,*)  'Passed period ', ixt, ' of ',  Tperiods
+        if (show .AND. rank==0 .AND. ixt<20) WRITE(*,*)  "Sum Labour Supply Policy is:", sum( policyL(ixt, :, :, :) )
+        !print '( "Avergage Labour Supply Policy is:",f6.3)', sum( policyL(ixt, :, :, :) )/size( policyL(ixt, :, :, :) )
     end do!ixt
-    !write(*,*) 4  
-    
+    !write(*,*) 4
+
     contains
     function func(x)
     real (kind = rk), intent(in) :: x
@@ -406,19 +409,19 @@
     !ouptut
     real (kind=rk) :: objectivefunc
     !local
-    real (kind=rk) :: cons, VA1, mortal(Tperiods+1)
+    real (kind=rk) :: cons, VA1, mortal(Tperiods+1), temp(86), VB1
     ! Declare global we need this file have access to
     !mortal = (/1,2,&
     !        3,4/)
 
-    mortal = (/0.0, 0.0, 0.0, 0.0, 0.0, &
+    temp = (/0.0, 0.0, 0.0, 0.0, 0.0, &
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, &
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.011071, 0.011907, 0.012807, &
         0.013676, 0.01475, 0.015818, 0.016846, 0.018079, 0.019343, 0.020659, 0.0218, 0.023505, 0.025202, 0.02696, &
         0.028831, 0.031017, 0.033496, 0.036024, 0.038912, 0.042054, 0.045689, 0.049653, 0.054036, 0.05886, 0.064093, &
         0.069636, 0.07533, 0.081069, 0.086912, 0.093067, 0.099807, 0.107483, 0.116125, 0.125196, 0.134361, 0.143881, &
         0.1542, 0.165675, 0.17842, 0.192363, 0.2117, 0.1672,0.1565, 0.1485,0.1459, 1.0/);
-
+    mortal = temp(startAge-20+1:86)
     !Get tomorrow's consumption (cons), the value of left over assets (VA1) and
     !total value (u(c) + b * VA1
     cons = A0  + Y - (A1)/(1+params%r);
@@ -429,7 +432,8 @@
     call linearinterp2_withextrap(grids%Agrid(ixP + 1, :), grids%AIMEgrid(ixP + 1, :), &
         numPointsA, numAIME, A1, AIME, VA1, 1, 1, EV1)
     !interp2(EV1, A1/Agrid1(20), AIME/AIME1grid(10));
-    objectivefunc = utility(params,cons,L) + params%beta * (1- mortal(ixP))* VA1;
+    VB1 = params%thetab*((A1+params%K)**(1-params%gamma))/(1-params%gamma);
+    objectivefunc = utility(params,cons,L) + params%beta * ((1- mortal(ixP))* VA1+mortal(ixP)*VB1);
 
     !! ------------------------------------------------------------------------
     !The optimisation routine that we will use searches for the minimum of the
@@ -526,7 +530,7 @@
     real (kind=rk) :: logy1(1,numSims)        ! draws for initial income
     real (kind=rk) :: ly(Tperiods, numSims)           ! log income
     !real (kind=rk) :: ypathIndex(Tperiods, numSims)   ! holds the index (location) in the vector
-    integer :: s, t, seed1, seed2, ios, idxA(1), idxAIME(1), idxY(1)
+    integer :: s, t, seed1, seed2, ios, idxA(1), idxAIME(1), idxY(1), workAge
     !real (kind=rk) :: temp2(numPointsY)
     !CHARACTER(len=255) :: cwd
     !CALL getcwd(cwd)
@@ -538,21 +542,28 @@
     INTEGER :: n, i, uniformInt(numSims)
     INTEGER, DIMENSION(:), ALLOCATABLE :: seed
 
-    seedIn = 16101988
-    !Set seed
-    CALL RANDOM_SEED(size = n)
-    ALLOCATE(seed(n))
-    seed = seedIn * (/ (i - 1, i = 1, n) /)
-    CALL RANDOM_SEED(PUT = seed)
-    DEALLOCATE(seed)
+    if (fullLifeCycle) then
+        seedIn = 16101988
+        !Set seed
+        CALL RANDOM_SEED(size = n)
+        ALLOCATE(seed(n))
+        seed = seedIn * (/ (i - 1, i = 1, n) /)
+        CALL RANDOM_SEED(PUT = seed)
+        DEALLOCATE(seed)
 
-    !!get uniform random number
-    CALL RANDOM_NUMBER(uniformRand)
+        !!get uniform random number
+        CALL RANDOM_NUMBER(uniformRand)
 
-    do i=1, numsims
-        uniformInt(i) = floor(uniformRand(i)*numPointsA)+1
-        startingA(i) =grids%Agrid(1,uniformInt(i))
-    end do
+        do i=1, numsims
+            uniformInt(i) = floor(uniformRand(i)*numPointsA)+1
+            startingA(i) =grids%Agrid(1,uniformInt(i))
+        end do
+    else
+        startingA = grids%initialAssets(1:size(startingA))
+        do i =1, size(startingA)
+            if (startingA(i) < 0.0) startingA(i) = 0.0
+        end do
+    end if
     startAIME = 0
 
     ! Obtain time series of incomes for our simulated individuals
@@ -586,11 +597,12 @@
     do s = 1, numSims, 1                           ! loop through individuals
         ! Get all the incomes, recursively
         ly(1, s) = truncate(logy1(1, s), -normBnd*sig_inc,normBnd*sig_inc )
-        y(1, s) = exp(ly(1, s)+params%delta(1)+params%delta(2)+params%delta(3)-grids%fc(1))
+        y(1, s) = exp(ly(1, s)+params%delta(1)*(startAge - 20 + 1)**2+params%delta(2)*(startAge - 20 + 1)+params%delta(3)-grids%fc(1))
         do t = 1,Tperiods-1,1                              ! loop through time periods for a particular individual
+            workAge = startAge - 20 + t
             ly(t+1, s) = (1 -params%rho) * params%mu + params%rho * ly(t, s) + e(t + 1, s)
             ly(t+1, s) = truncate(ly(t+1, s), -normBnd*sig_inc,normBnd*sig_inc )
-            y(t+1, s) = exp( ly(t+1, s) + params%delta(1)*(t+1)**2+params%delta(2)*(t+1)+params%delta(3)-grids%fc(t+1) )
+            y(t+1, s) = exp( ly(t+1, s) + params%delta(1)*(workAge+1)**2+params%delta(2)*(workAge+1)+params%delta(3)-grids%fc(t) )
         end do ! t
     end do! s
     !!$omp end do
@@ -795,8 +807,14 @@
             meanL(n)=sum(real(lpath(n,:),rk))/real(numSims,rk) !size(lpath(n,:))
             meanA(n)=sum(real(Apath(n,:),rk))/real(numSims,rk) !size(lpath(n,:))
         end do
-        gmm = dot_product(abs(meanL(32:32+23)-target(1,:)),abs(meanL(32:32+23)-target(1,:)))! + &
-            !dot_product(abs(meanA(32:32+23)-target(2,:)),abs(meanA(32:32+23)-target(2,:)))
+        if (fullLifeCycle) then
+            gmm = dot_product(abs(meanL(32:32+23)-target(1,:)),abs(meanL(32:32+23)-target(1,:)))! + &
+                !dot_product(abs(meanA(32:32+23)-target(2,:)),abs(meanA(32:32+23)-target(2,:)))
+            else
+        gmm = dot_product(abs(meanL(33 - (StartAge-20):33 - (StartAge-20)+23)-target(1,:)),abs(meanL(33 - (StartAge-20):33 - (StartAge-20)+23)-target(1,:)))! + &
+            !dot_product(abs(meanA(33 - (StartAge-20):33 - (StartAge-20)+23)-target(2,:)),abs(meanA(33 - (StartAge-20):33 - (StartAge-20)+23)-target(2,:)))
+        end if
+
     end if
 
 #ifdef mpi 
@@ -1145,5 +1163,149 @@
     vec = reshape(mat(thisCoreStart:thisCoreEnd,:),(/(thisCoreEnd-thisCoreStart+1)*dim2/))
 
     end subroutine
+    !!-----------------------------------------------------------------------------------------------------------!
+    !Intialise gues for Nedler-Mead Algorithm
+    !!-----------------------------------------------------------------------------------------------------------!
+    subroutine initialGuess(rank,params,grids,moments,p,y)
+    implicit none
+    !inputs
+    integer, intent(in) :: rank
+    real(kind=rk), intent(in) :: moments(2,24)
 
+    !changing
+    type (structparamstype), intent(inout) :: params
+    type (gridsType), intent(inout) :: grids
+
+    !outpus
+    real(kind=rk), intent(out) :: y(dimEstimation+1), p(dimEstimation+1,dimEstimation)
+
+    !local
+    integer :: i, seedIn, n
+    real (kind=rk) ::  uniformRand(dimEstimation+1)
+    INTEGER, DIMENSION(:), ALLOCATABLE :: seed
+
+    if (fullLifeCycle) then
+        if (rank==0) then
+            print '("Guess 1")'
+        end if
+        params%nu =      0.38022456150504280
+        params%beta =  0.97235322545400193
+        params%gamma =  2.092041817380061
+        params%db(1) = 0.91387622628345655
+        params%db(2) = -4.7393420983952571E-005
+
+        p(1,1) = params%nu
+        p(1,2) = params%beta
+        p(1,3) = params%gamma
+        p(1,4) = params%db(1)
+        p(1,5) = params%db(2)
+        y(1) = gmm_criteria(p(1,:))
+
+        !!$omp section
+        if (rank==0) then
+            print '("Guess 2")'
+        end if
+        p(2,1) = 0.4637
+        p(2,2) = 0.970
+        P(2,3) = 1
+        p(2,4) = params%db(1)*0.9
+        p(2,5) = params%db(2)*1.2
+        y(2) = gmm_criteria(p(2,:))
+
+        !!$omp section
+        if (rank==0) then
+            print '("Guess 3")'
+        end if
+        p(3,1) = 0.322
+        p(3,2) = 0.9843
+        P(3,3) = 2
+        p(3,4) = params%db(1)*1.1
+        p(3,5) = params%db(2)*0.7
+        y(3) = gmm_criteria(p(3,:))
+
+        !!$omp section
+        if (rank==0) then
+            print '("Guess 4")'
+        end if
+        p(4,1) = 0.55
+        p(4,2) = 0.96
+        P(4,3) = 0.5
+        p(4,4) = params%db(1)*1.3
+        p(4,5) = params%db(2)*0.95
+        y(4) = gmm_criteria(p(4,:))
+
+        !!$omp section
+        if (rank==0) then
+            print '("Guess 5")'
+        end if
+        p(5,1) = 0.15
+        p(5,2) = 0.9999
+        P(5,3) = 4
+        p(5,4) = params%db(1)*0.85
+        p(5,5) = params%db(2)*1.15
+        y(5) = gmm_criteria(p(5,:))
+
+        !!$omp section
+        if (rank==0) then
+            print '("Guess 6")'
+        end if
+        p(6,1) = 0.27
+        p(6,2) = 0.986
+        P(6,3) = 0.9
+        p(6,4) = params%db(1)*0.99
+        p(6,5) = params%db(2)*0.87
+        y(6) = gmm_criteria(p(6,:))
+
+        !!$omp end sections
+        !!$omp end parallel
+    else
+
+        seedIn = 16101988
+        !Set seed
+        CALL RANDOM_SEED(size = n)
+        ALLOCATE(seed(n))
+        seed = seedIn * (/ (i - 1, i = 1, n) /)
+        CALL RANDOM_SEED(PUT = seed)
+        DEALLOCATE(seed)
+
+        !!get uniform random number
+        CALL RANDOM_NUMBER(uniformRand)
+        uniformRand = -0.5+uniformRand
+        do i = 1, dimEstimation+1
+            if (rank==0) then
+                write (*,*) "Guess ", i
+            end if            
+            p(i,1) = params%nu*(1+uniformRand(i))
+            p(i,2) = (0.95+0.1*uniformRand(i))!params%beta*(1+uniformRand(i))
+            p(i,3) = params%gamma*(1+uniformRand(i))
+            p(i,4) = params%db(1)*(1+uniformRand(i))
+            p(i,5) = params%db(2)*(1+uniformRand(i))
+            y(i) = gmm_criteria(p(i,:))
+        end do
+    end if
+    contains
+    function gmm_criteria(control)
+    implicit none
+    !inputs
+    real (kind=rk), intent(in) ::control(:)
+    !output
+    real (kind=rk) :: gmm_criteria
+    if (maxval(control(1:2)) > 1)  then
+        gmm_criteria = huge(gmm_criteria)
+        return
+    end if
+    if (minval(control(1:4)) < 0 .or.  control(5)> 0 )  then !.OR. control(6)< 0
+        gmm_criteria = huge(gmm_criteria)
+        return
+    end if
+    params%nu = control(1)
+    params%beta = control(2)
+    params%gamma = control(3)
+    params%db(1)= control(4)
+    params%db(2)= control(5)
+    gmm_criteria = gmm(params,grids,moments) !*-1.0
+
+    end function
+
+    end subroutine
     end module routines

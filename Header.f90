@@ -6,13 +6,15 @@
     integer, parameter :: numPointsY = 10 !20
     integer, parameter :: numAIME = 30 !10 !5
     integer, parameter :: numPointsL = 2
-    integer, parameter :: numSims = 250 !5000 !10000!
-    integer, parameter :: Tperiods = 85
-    integer, parameter :: Tretire =42
+    integer, parameter :: numSims = 1016!  250! 5000! 10000!
+    integer, parameter :: startAge =  52 !20! 
+    integer, parameter :: endAge = 105 
+    integer, parameter :: Tperiods = endAge -startAge
+    integer, parameter :: Tretire =62 -startAge
     integer, parameter :: normBnd = 4
     integer, parameter :: dimEstimation = 5
-    integer, parameter :: spouseretire = 45
-    integer, parameter :: stopwrok = 60
+    integer, parameter :: spouseretire = 65 -startAge
+    integer, parameter :: stopwrok = 80 -startAge
 
     !Holds the structural parameters that will eventually be estimated (at least in some cases)
     type structparamstype
@@ -32,6 +34,8 @@
         real (kind=rk) :: minCons
         real (kind=rk) :: db(2)
         real (kind=rk) :: startA
+        real (kind=rk) :: thetab
+        real (kind=rk) :: k
         !real (kind=rk) :: tol, minCons
         real (kind=rk) :: tol
         integer :: system
@@ -45,10 +49,13 @@
         real (kind=rk) :: benefit(Tperiods)
         real (kind=rk) :: fc(Tperiods)
         real (kind=rk) :: maxInc(Tperiods)
+        real (kind=rk) :: initialAssets(1016)
     end type gridsType
 
     !! For mpi
     integer :: rank, ierror, procsize
     integer, parameter :: mpiDim =  numPointsA * numAIME  
 
+    !! Test controls
+    logical, parameter :: fullLifeCycle = .FALSE.
     end module Header
