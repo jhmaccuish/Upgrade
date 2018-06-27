@@ -111,7 +111,7 @@
     procSize = 1
 #endif
 
-    action =1
+    action =2
     if (action .EQ. 1) then
         params%nu = 0.379444754253488     
         params%beta = 0.999958017173274     

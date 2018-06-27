@@ -14,7 +14,7 @@
     ! ---------------------------------------------------------------------------------------------------------!
     ! ---------------------------------------------------------------------------------------------------------!
     !!Get Income grid
-    subroutine getIncomeGrid(params, Ygrid, incTransitionMrx, minInc, maxInc, AIMEgrid, benefit, fc)
+    subroutine getIncomeGrid(params, YgridOut, incTransitionMrxOut, minInc, maxInc, AIMEgrid, benefit, fc)
     implicit none
 
     !inputs
@@ -22,16 +22,17 @@
     real (kind=rk):: fc(:)
 
     !outputs
-    real (kind=rk) :: Ygrid(:,:), incTransitionMrx(:,:), minInc(:), maxInc(:), AIMEgrid(:,:), benefit(:)
+    real (kind=rk) :: YgridOut(:,:), incTransitionMrxOut(:,:), minInc(:), maxInc(:), AIMEgrid(:,:), benefit(:)
 
     !local
-    real (kind=rk) :: sig_inc, ly(numPointsY), upper(Tperiods+1), a !Q(numPointsY,numPointsY)
+    real (kind=rk) :: sig_inc, ly(numPointsProd), upper(Tperiods+1), a !Q(numPointsY,numPointsY)
+    real (kind=rk) :: Ygrid(Tperiods,numPointsProd), incTransitionMrx(numPointsProd,numPointsProd)
     integer :: t, i, workAge
 
     sig_inc = params%sigma/((1-params%rho**2)**0.5)
 
     !Why 3
-    call tauchen(numPointsY,params%mu,params%rho,params%sigma,3,ly,incTransitionMrx)
+    call tauchen(numPointsProd,params%mu,params%rho,params%sigma,3,ly,incTransitionMrx)
 
     !Ygrid = exp(repmat(ly', T, 1)+repmat(polyval(delta,1:T)'-fc(1:T),1,numPointsY));
     !minInc = exp(repmat((-normBnd * sig_inc)', T, 1)+polyval(delta,1:T)');%exp(repmat((-normBnd * sig_inc)', T, 1)+repmat(polyval(delta,1:T),1,numPointsY));
@@ -60,6 +61,7 @@
     AIMEgrid(Tperiods+1,:) = AIMEgrid(Tperiods,:)
 
     !benefit = [57.90*52*ones(5,1);73.10*52*ones(length(minInc)-5,1)]
+    call addUnemploymentshock(Ygrid, incTransitionMrx,YgridOut, incTransitionMrxOut)
 
     end subroutine
 
@@ -378,7 +380,7 @@
 
 #endif   
         if (show .AND. rank==0) WRITE(*,*)  'Passed period ', ixt, ' of ',  Tperiods
-        if (show .AND. rank==0 .AND. ixt<20) WRITE(*,*)  "Sum Labour Supply Policy is:", sum( policyL(ixt, :, :, :) )
+        !if (show .AND. rank==0 .AND. ixt<20) WRITE(*,*)  "Sum Labour Supply Policy is:", sum( policyL(ixt, :, :, :) )
         !print '( "Avergage Labour Supply Policy is:",f6.3)', sum( policyL(ixt, :, :, :) )/size( policyL(ixt, :, :, :) )
     end do!ixt
     !write(*,*) 4
@@ -811,8 +813,8 @@
             gmm = dot_product(abs(meanL(32:32+23)-target(1,:)),abs(meanL(32:32+23)-target(1,:)))! + &
                 !dot_product(abs(meanA(32:32+23)-target(2,:)),abs(meanA(32:32+23)-target(2,:)))
             else
-        gmm = dot_product(abs(meanL(33 - (StartAge-20):33 - (StartAge-20)+23)-target(1,:)),abs(meanL(33 - (StartAge-20):33 - (StartAge-20)+23)-target(1,:)))! + &
-            !dot_product(abs(meanA(33 - (StartAge-20):33 - (StartAge-20)+23)-target(2,:)),abs(meanA(33 - (StartAge-20):33 - (StartAge-20)+23)-target(2,:)))
+        gmm = dot_product(abs(meanL(33 - (StartAge-20):33 - (StartAge-20)+23)-target(1,:)),abs(meanL(33 - (StartAge-20):33 - (StartAge-20)+23)-target(1,:))) + &
+            dot_product(abs(meanA(33 - (StartAge-20):33 - (StartAge-20)+23)-target(2,:)),abs(meanA(33 - (StartAge-20):33 - (StartAge-20)+23)-target(2,:)))
         end if
 
     end if
@@ -1308,4 +1310,39 @@
     end function
 
     end subroutine
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! Add Unemployment shocks
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1111
+    subroutine addUnemploymentshock(Ygrid, incTransitionMrx,YgridOut, incTransitionMrxOut)
+        implicit none
+        !Input
+        real (kind=rk), intent(in) :: Ygrid(:,:), incTransitionMrx(:,:)
+
+        !Output
+        real (kind=rk), intent(out) :: YgridOut(:,:), incTransitionMrxOut(:,:)
+
+        !local
+        real (kind=rk) :: unemploy(numPointsProd), reemploy(numPointsProd)
+        integer :: i
+        unemploy =(/0.1475, 0.02875, 0.02525, 0.01625, 0.011, 0.01475, 0.01, 0.0065, 0.004, 0.005/)
+        reemploy =(/0.165, 0.02725, 0.023, 0.01025, 0.00775, 0.01225, 0.0085, 0.00225, 0.002, 0.00275/)
+
+        YgridOut(:,:) = 0.0
+        incTransitionMrxOut(:,:) = 0.0
+        !rangePoints =
+        YgridOut(:,(/(i,i=1,numPointsY-1,2)/))= Ygrid(:,:)
+        do i = 1, numPointsY
+            if (mod(i,2)==1) then
+                incTransitionMrxOut(i,(/(i,i=1,numPointsY-1,2)/)) = (1-unemploy(i/2+1))*incTransitionMrx(i/2+1,:)
+                incTransitionMrxOut(i,(/(i,i=2,numPointsY,2)/)) = unemploy(i/2+1)*incTransitionMrx(i/2+1,:)
+
+            else
+                incTransitionMrxOut(i,i-1) = reemploy(i/2)
+                incTransitionMrxOut(i,i) = 1-reemploy(i/2)
+            end if
+        end do
+
+
+    end subroutine
+
     end module routines

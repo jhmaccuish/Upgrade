@@ -3,7 +3,8 @@
     integer, parameter :: rk = selected_real_kind(15)
 
     integer, parameter :: numPointsA = 30 !30 !20 !30 !45
-    integer, parameter :: numPointsY = 10 !20
+    integer, parameter :: numPointsProd = 10
+    integer, parameter :: numPointsY = 2*numPointsProd !20
     integer, parameter :: numAIME = 30 !10 !5
     integer, parameter :: numPointsL = 2
     integer, parameter :: numSims = 1016!  250! 5000! 10000!

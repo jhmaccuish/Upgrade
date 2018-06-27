@@ -21,6 +21,8 @@
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="photran.managedbuild.target.gnu.platform.exe.debug.1056305561" name="Debug Platform" osList="solaris,linux,hpux,aix,qnx" superClass="photran.managedbuild.target.gnu.platform.exe.debug"/>
 							<builder buildPath="${workspace_loc:/EclipseProj}/Debug" id="photran.managedbuild.target.gnu.builder.exe.debug.1932284638" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="photran.managedbuild.target.gnu.builder.exe.debug"/>
 							<tool id="photran.managedbuild.tool.gnu.c.compiler.exe.debug.1688136858" name="GCC C Compiler" superClass="photran.managedbuild.tool.gnu.c.compiler.exe.debug">
+								<option id="gnu.c.compiler.option.preprocessor.nostdinc.1238990131" superClass="gnu.c.compiler.option.preprocessor.nostdinc" value="true" valueType="boolean"/>
+								<option id="gnu.c.compiler.option.preprocessor.preprocess.423328824" superClass="gnu.c.compiler.option.preprocessor.preprocess" value="true" valueType="boolean"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1390724243" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="photran.managedbuild.tool.gnu.fortran.compiler.exe.debug.204785891" name="GNU Fortran Compiler" superClass="photran.managedbuild.tool.gnu.fortran.compiler.exe.debug">
@@ -64,11 +66,17 @@
 							<builder buildPath="${workspace_loc:/EclipseProj}/Release" id="photran.managedbuild.target.gnu.builder.exe.release.1085413654" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="photran.managedbuild.target.gnu.builder.exe.release"/>
 							<tool id="photran.managedbuild.tool.gnu.c.compiler.exe.release.1587609916" name="GCC C Compiler" superClass="photran.managedbuild.tool.gnu.c.compiler.exe.release">
 								<option id="gnu.c.compiler.option.misc.other.1829122277" name="Other flags" superClass="gnu.c.compiler.option.misc.other" useByScannerDiscovery="false" value="-fopenmp  -c -fmessage-length=0" valueType="string"/>
+								<option id="gnu.c.compiler.option.preprocessor.nostdinc.1035289808" name="Do not search system directories (-nostdinc)" superClass="gnu.c.compiler.option.preprocessor.nostdinc" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="gnu.c.compiler.option.preprocessor.preprocess.710254489" name="Preprocess only (-E)" superClass="gnu.c.compiler.option.preprocessor.preprocess" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="gnu.c.compiler.option.dialect.std.706460167" name="Language standard" superClass="gnu.c.compiler.option.dialect.std" useByScannerDiscovery="true" value="gnu.c.compiler.dialect.default" valueType="enumerated"/>
+								<option id="gnu.c.compiler.option.preprocessor.def.symbols.813504515" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="win"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.714835365" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool command="gfortran " id="photran.managedbuild.tool.gnu.fortran.compiler.exe.release.1795378670" name="GNU Fortran Compiler" superClass="photran.managedbuild.tool.gnu.fortran.compiler.exe.release">
 								<option id="gnu.fortran.compiler.option.optimization.flags.1535031213" name="Other optimization flags" superClass="gnu.fortran.compiler.option.optimization.flags" useByScannerDiscovery="false" value="" valueType="string"/>
-								<option id="gnu.fortran.compiler.option.misc.other.363973478" name="Other flags" superClass="gnu.fortran.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -ffree-line-length-none" valueType="string"/>
+								<option id="gnu.fortran.compiler.option.misc.other.363973478" name="Other flags" superClass="gnu.fortran.compiler.option.misc.other" useByScannerDiscovery="false" value="-c -fmessage-length=0 -ffree-line-length-none -cpp" valueType="string"/>
 								<option id="gnu.fortran.compiler.option.misc.verbose.1421540265" name="Verbose (-v)" superClass="gnu.fortran.compiler.option.misc.verbose" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="gnu.fortran.compiler.option.warnings.allwarn.545953174" name="All warnings (-Wall)" superClass="gnu.fortran.compiler.option.warnings.allwarn" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<inputType id="photran.managedbuild.tool.gnu.fortran.compiler.input.1599579916" superClass="photran.managedbuild.tool.gnu.fortran.compiler.input"/>
