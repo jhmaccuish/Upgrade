@@ -2066,7 +2066,7 @@
     !!!!
     !!!!Median
     !!!!
-      function median(a, found)
+    function median(a, found)
     real(kind=rk), dimension(:), intent(in) :: a
       ! the optional found argument can be used to check
       ! if the function returned a valid value; we need this
@@ -2096,6 +2096,42 @@
        if ( present(found) ) found = .true.
     end if
 
-      end function median
-      
+    end function median
+    !-----------------------------------------------------------------------------
+    !gind nearest grid points
+    !-----------------------------------------------------------------------------
+    subroutine findgridvals3D(wgrid,xgrid, ygrid, zgrid, lengthw,lengthx, lengthy , wval,xval, yval, nearestval, valSquare)
+        implicit none
+        ! Arguments
+        integer, intent (in) :: lengthw, lengthx, lengthy
+        real (kind=rk), intent (in) :: wgrid(lengthx), xgrid(lengthx), ygrid(lengthy)
+        integer, intent (in) :: zgrid(lengthw,lengthx, lengthy)
+        real (kind=rk), intent (in) :: xval, yval, wval
+
+        integer, intent(out) :: nearestval
+        integer, intent(out) :: valSquare(8)
+
+        integer :: nearestlocw, lowerlocw, nearestlocx, lowerlocx, nearestlocy, lowerlocy, upperlocw,upperlocx, upperlocy
+        
+        call findingridr(wgrid, lengthw, wval, nearestlocw, lowerlocw)  
+        call findingridr(xgrid, lengthx, xval, nearestlocx, lowerlocx)        
+        call findingridr(ygrid, lengthy, yval, nearestlocy, lowerlocy)        
+        
+        nearestval = zgrid(nearestlocw,nearestlocx,nearestlocy)
+        upperlocw = min(lengthw, lowerlocw+1)
+        upperlocx = min(lengthx, lowerlocx+1)
+        upperlocy = min(lengthy, lowerlocy+1)
+        lowerlocw = max(1,lowerlocw)
+        lowerlocx = max(1,lowerlocx)
+        lowerlocy = max(1,lowerlocy)
+        valSquare(1) = zgrid(lowerlocw,lowerlocx,lowerlocy)
+        valSquare(2) = zgrid(lowerlocw,lowerlocx,upperlocy)
+        valSquare(3) = zgrid(lowerlocw,upperlocx,upperlocy)
+        valSquare(4) = zgrid(lowerlocw,upperlocx,lowerlocy)
+        valSquare(5) = zgrid(upperlocw,lowerlocx,lowerlocy)
+        valSquare(6) = zgrid(upperlocw,lowerlocx,upperlocy)
+        valSquare(7) = zgrid(upperlocw,upperlocx,upperlocy)
+        valSquare(8) = zgrid(upperlocw,upperlocx,lowerlocy)
+        
+      end subroutine findgridvals3D    
     end module routines_generic

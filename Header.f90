@@ -2,16 +2,16 @@
 
     integer, parameter :: rk = selected_real_kind(15)
 
-    integer, parameter :: numPointsA = 30 !30 !20 !30 !45
-    integer, parameter :: numPointsProd = 10
+    integer, parameter :: numPointsA = 2*30 !30 !20 !30 !45
+    integer, parameter :: numPointsProd = 2*10
     integer, parameter :: numPointsY = 2*numPointsProd !20
-    integer, parameter :: numAIME = 30 !10 !5
+    integer, parameter :: numAIME = 2*30 !10 !5
     integer, parameter :: numPointsL = 2
     integer, parameter :: numSims = 1016!  250! 5000! 10000!
     integer, parameter :: startAge =  52 !20! 
     integer, parameter :: endAge = 105 
     integer, parameter :: Tperiods = endAge -startAge
-    integer, parameter :: Tretire =62 -startAge
+    integer, parameter :: Tretire =60 -startAge
     integer, parameter :: normBnd = 4
     integer, parameter :: dimEstimation = 5
     integer, parameter :: spouseretire = 65 -startAge
@@ -37,9 +37,7 @@
         real (kind=rk) :: startA
         real (kind=rk) :: thetab
         real (kind=rk) :: k
-        !real (kind=rk) :: tol, minCons
         real (kind=rk) :: tol
-        integer :: system
     end type structparamstype
 
     type gridsType
@@ -51,6 +49,10 @@
         real (kind=rk) :: fc(Tperiods)
         real (kind=rk) :: maxInc(Tperiods)
         real (kind=rk) :: initialAssets(1016)
+        real (kind=rk) :: mortal(Tperiods+1)
+        real (kind=rk) :: Simy(Tperiods, numSims)
+        real (kind=rk) :: unemploy(numPointsProd)
+        real (kind=rk) :: reemploy(numPointsProd)
     end type gridsType
 
     !! For mpi
